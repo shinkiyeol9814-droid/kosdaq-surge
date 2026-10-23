@@ -38,9 +38,10 @@ def main():
         print(f"{now:%Y-%m-%d} {reason} — 건너뜀")
         print(f"::notice title=휴장::{slot} 건너뜀 — {now:%Y-%m-%d} {reason}")
         return 0
-    # 종가 슬롯이 장 마감 전에 돌면 누적값이 덜 찬 상태로 '종가'에 섞인다.
-    if slot == "close" and now.strftime("%H%M") < "1531" and not forced:
-        print(f"::warning title=이른 실행::종가 슬롯이 {now:%H:%M}에 불렸다 — 건너뜀")
+    # 종가 슬롯은 15:31~15:59에만. 마감 전이면 누적값이 덜 찼고, 16시 이후엔 네이버 현재가·거래대금에
+    # 시간외 단일가 체결이 섞인다(10/23 16:51 실행에서 폴라리스AI 종가 5,720이 5,570으로 찍혔다).
+    if slot == "close" and not ("1531" <= now.strftime("%H%M") < "1600") and not forced:
+        print(f"::warning title=시각 벗어남::종가 슬롯이 {now:%H:%M}에 불렸다 — 15:31~15:59만 받는다")
         return 0
     # 장중 슬롯은 시각이 곧 기준이다 — 늦게 받은 누적값을 같은 시각 중앙값과 비교하면 배수가
     # 부풀고, 그 스냅샷이 다음 20일의 기준선까지 오염시킨다. 이르거나 30분 넘게 늦으면 버린다.

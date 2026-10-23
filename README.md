@@ -41,6 +41,6 @@ Accept: application/vnd.github+json
 ```
 
 장중 슬롯은 정시보다 이르거나 30분 넘게 늦게 돌면 버린다(늦게 받은 누적값은 배수를 부풀리고 이후 20일의 기준선까지 오염시킨다).
-종가 슬롯은 15:31 이전이면 버린다. 수동 실행(Actions → Snapshot → Run workflow)은 이 검사를 건너뛴다.
+종가 슬롯은 15:31~15:59에만 받는다(16시부터 시간외 단일가가 섞인다). 수동 실행(Actions → Snapshot → Run workflow)은 이 검사를 건너뛴다.
 
 로컬: `pip install -r requirements.txt` → `FORCE_RUN=1 python run.py --slot close` → `python -m http.server -d docs`.
