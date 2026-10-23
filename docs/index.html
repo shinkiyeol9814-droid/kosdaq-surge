@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>거래대금 급증 스크리너</title>
+<meta name="description" content="코스피·코스닥에서 같은 시각 평소보다 거래대금이 몇 배로 불어난 종목을 하루 네 번 잡아낸다.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect x='1' y='9' width='3' height='6' fill='%23ef5350'/%3E%3Crect x='6.5' y='5' width='3' height='10' fill='%23ef5350'/%3E%3Crect x='12' y='1' width='3' height='14' fill='%23ef5350'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main>
+  <header class="top">
+    <div>
+      <div class="kicker">KOSPI · KOSDAQ</div>
+      <h1>거래대금 급증 스크리너</h1>
+    </div>
+    <div class="updated" id="updated"></div>
+  </header>
+
+  <details class="rules" id="rules">
+    <summary>포착 기준과 등급</summary>
+    <div class="rules-body" id="rules-body"></div>
+  </details>
+
+  <nav class="days" id="days" aria-label="일자"></nav>
+  <nav class="slots" id="slots" aria-label="시각"></nav>
+
+  <div class="bar">
+    <div class="summary" id="summary"></div>
+    <div class="seg" id="mkt" role="group" aria-label="시장">
+      <button data-m="" class="on">전체</button><button data-m="K">코스피</button><button data-m="Q">코스닥</button>
+    </div>
+  </div>
+  <div class="note" id="note" hidden></div>
+
+  <div class="table-wrap">
+    <table id="tbl">
+      <thead><tr id="thead"></tr></thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </div>
+  <div class="empty" id="empty" hidden></div>
+
+  <footer>
+    거래대금은 그 시각까지의 누적값이다. 같은 시각끼리 비교하므로 장 초반의 일시적 쏠림과 하루 전체의 급증을
+    따로 볼 수 있다. 시세는 네이버 금융 공개 데이터 — 투자 판단의 근거로 삼기 전에 원 자료를 확인할 것.
+  </footer>
+</main>
+<script src="app.js"></script>
+</body>
+</html>
