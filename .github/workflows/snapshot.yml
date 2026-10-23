@@ -1,9 +1,10 @@
 name: Snapshot
 
-# cron-job.org가 평일 10:05 · 12:05 · 14:05 · 15:35(KST)에 repository_dispatch로 부른다.
+# cron-job.org 잡 하나가 평일 시 {10,12,14,15} × 분 {5,35}(KST)에 repository_dispatch로 부른다.
 #   POST /repos/{owner}/kosdaq-surge/dispatches
-#   {"event_type": "snapshot", "client_payload": {"slot": "1005"}}   # 1005 | 1205 | 1405 | close
-# 휴장일·시각이 어긋난 호출은 run.py가 알아서 건너뛴다.
+#   {"event_type": "snapshot", "client_payload": {"slot": "auto"}}
+# auto는 run.py가 시각으로 슬롯을 고르고, 해당 없는 호출(10:35 등)·휴장일은 그냥 끝난다.
+# 슬롯을 직접 줘도 된다: 1005 | 1205 | 1405 | close
 on:
   repository_dispatch:
     types: [snapshot]
@@ -59,7 +60,7 @@ jobs:
           if git diff --cached --quiet; then
             echo "변경 없음"; exit 0
           fi
-          git commit -q -m "data: ${{ github.event.client_payload.slot || inputs.slot }} $(TZ=Asia/Seoul date +'%Y-%m-%d %H:%M')"
+          git commit -q -m "data: $(TZ=Asia/Seoul date +'%Y-%m-%d %H:%M')"
           for i in 1 2 3 4; do
             git push && exit 0
             git pull --rebase -q && continue

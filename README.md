@@ -30,13 +30,14 @@ GitHub Actions가 네이버 금융 공개 시세를 받아 `docs/data`에 JSON�
 
 ## 실행 일정 (cron-job.org)
 
-평일 KST 10:05 · 12:05 · 14:05 · 15:35, 각각 아래 요청 하나씩:
+잡 하나로 된다 — Custom 일정에서 요일 월~금, 시 **10·12·14·15**, 분 **5·35**, 시간대 Asia/Seoul.
+하루 8번 불리고 그중 10:05 · 12:05 · 14:05 · 15:35만 수집하며 나머지 네 번은 바로 끝난다.
 
 ```
 POST https://api.github.com/repos/<owner>/kosdaq-surge/dispatches
 Authorization: Bearer <토큰>          # fine-grained, 이 리포 Contents: Read and write
 Accept: application/vnd.github+json
-{"event_type": "snapshot", "client_payload": {"slot": "1005"}}
+{"event_type": "snapshot", "client_payload": {"slot": "auto"}}
 ```
 
 장중 슬롯은 정시보다 이르거나 30분 넘게 늦게 돌면 버린다(늦게 받은 누적값은 배수를 부풀리고 이후 20일의 기준선까지 오염시킨다).
