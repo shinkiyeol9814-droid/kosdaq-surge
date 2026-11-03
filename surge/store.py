@@ -4,6 +4,8 @@
   data/snap/{YYYY-MM-DD}/{slot}.json   시장 전체 스냅샷 — 중앙값 계산용(화면엔 안 나감)
   docs/data/days/{YYYY-MM-DD}.json     그날 포착 결과 — 화면이 읽는다(GitHub Pages)
   docs/data/index.json                 일자 목록과 시각별 건수
+  data/flow/{YYYY-MM-DD}.json          그날 투신 순매수 — 연속일 계산용(화면엔 안 나감)
+  docs/data/flow.json                  투신 탭이 읽는 최신 결과
 
 스냅샷엔 중앙값 계산에 필요한 누적거래대금만 백만원 단위 정수로 남긴다 — 하루 4번 × 약 4천 종목이
 커밋되므로 이름·가격까지 넣으면 리포지토리가 금방 불어난다.
@@ -17,6 +19,8 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SNAP_DIR = os.path.join(ROOT, "data", "snap")
 DAYS_DIR = os.path.join(ROOT, "docs", "data", "days")
 INDEX = os.path.join(ROOT, "docs", "data", "index.json")
+FLOW_DIR = os.path.join(ROOT, "data", "flow")
+FLOW_OUT = os.path.join(ROOT, "docs", "data", "flow.json")
 
 
 def now_kst():
@@ -71,3 +75,35 @@ def save_day(day: str, obj: dict):
 
 def save_index(obj: dict):
     _write_json(INDEX, obj)
+
+
+def save_flow_day(day: str, values: dict, closed: bool = False):
+    """values: {코드: 투신 순매수(원)} — 백만원 단위, 0은 뺀다. closed면 KRX가 빈 표를 준 날(휴장)."""
+    slim = {c: int(round(v / 1e6)) for c, v in sorted(values.items()) if round(v / 1e6)}
+    _write_json(os.path.join(FLOW_DIR, f"{day}.json"), {"x": "휴장"} if closed else {"v": slim})
+
+
+def load_flow_day(day: str):
+    try:
+        with open(os.path.join(FLOW_DIR, f"{day}.json"), "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return None
+
+
+def flow_days() -> list:
+    if not os.path.isdir(FLOW_DIR):
+        return []
+    return sorted(f[:10] for f in os.listdir(FLOW_DIR) if f.endswith(".json"))
+
+
+def load_flow() -> dict:
+    try:
+        with open(FLOW_OUT, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+
+def save_flow(obj: dict):
+    _write_json(FLOW_OUT, obj)

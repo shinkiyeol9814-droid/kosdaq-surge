@@ -7,6 +7,7 @@ AI 코딩 에이전트(Claude Code 등)를 위한 프로젝트 가이드. 코드
 ## 프로젝트 개요
 
 코스피·코스닥에서 **같은 시각** 평소보다 거래대금이 몇 배로 불어난 종목을 하루 네 번 잡아내는 스크리너.
+'투신 수급' 탭(2026-11-03 추가)은 시총 1조 이하에서 투신이 많이 산 종목·연속 순매수 종목을 KRX 확정치로 뽑는다.
 https://kosdaq-surge.yunhee2368.workers.dev/ 와 같은 기능을 목표로 2026-10-23 새로 만들었다
 (화면 디자인·코드는 독자적으로 작성 — 원 사이트의 코드나 브랜딩을 가져오지 말 것).
 
@@ -20,7 +21,8 @@ https://kosdaq-surge.yunhee2368.workers.dev/ 와 같은 기능을 목표로 2026
 | GitHub Actions | 3.12 (워크플로우에 고정) |
 | 로컬 | 3.13 |
 
-의존성은 `requests`, `holidays` 둘뿐이다. 프런트엔드는 빌드 도구 없는 순수 HTML/CSS/JS.
+의존성은 `requests`, `holidays`, `pykrx`(투신 수급 전용 — pandas 등을 끌고 온다)다.
+프런트엔드는 빌드 도구 없는 순수 HTML/CSS/JS.
 
 ---
 
@@ -47,8 +49,11 @@ https://kosdaq-surge.yunhee2368.workers.dev/ 와 같은 기능을 목표로 2026
 | `surge/screen.py` | 중앙값 기준선, 포착, 등급, 일자 파일, 색인, 보관 기간 정리 |
 | `surge/store.py` | 파일 경로·읽기/쓰기 (KST 기준 `now_kst()`) |
 | `surge/krxcal.py` | 휴장일 판정 (stdlib `calendar`와 이름이 겹쳐 krxcal로 지었다) |
+| `flows.py` | 투신 수급 — 빠진 거래일의 KRX 투신 순매수를 채우고 `docs/data/flow.json`을 만든다 |
+| `surge/krx.py` | KRX 정보데이터시스템(pykrx, 로그인 필요) — 투신 순매수 전 종목, 전종목 시세 |
+| `surge/flow.py` | 투신 두 목록(오늘 많이 산 / 연속 순매수) 계산 |
 | `docs/index.html · app.js · style.css` | 정적 화면 |
-| `.github/workflows/snapshot.yml` | repository_dispatch(`snapshot`) / 수동 실행 |
+| `.github/workflows/snapshot.yml` | repository_dispatch(`snapshot`) / 평일 18:35 schedule(투신만) / 수동 실행 |
 
 ### 데이터 레이아웃
 ```
@@ -60,6 +65,9 @@ docs/data/days/{YYYY-MM-DD}.json     화면이 읽는 그날 결과. 30거래일
                    news [제목, 언론사, URL, YYYYMMDDHHMM], k 3개월 일봉 [[시,고,저,종]...]}
   note = 재구성한 날 등 화면에 띄울 한 줄
 docs/data/index.json                 일자 목록·시각별 건수·기준값(criteria), 화면 첫 로딩용
+data/flow/{YYYY-MM-DD}.json          {"v": {코드: 투신 순매수(백만원 정수, 0 제외)}} 또는 {"x": "휴장"}
+                                     연속일 계산 전용. 20거래일 보관(FLOW_KEEP_DAYS)
+docs/data/flow.json                  투신 탭 — 최신 기준일 하나만. 구조는 surge/flow.py 머리말
 ```
 '종합' 탭은 저장하지 않는다 — 브라우저가 `slots`를 합쳐 만든다(정렬: 잡힌 시각 수 → 최고 배수).
 
@@ -78,6 +86,12 @@ docs/data/index.json                 일자 목록·시각별 건수·기준값(
 
 기준을 바꾸면 **이후 결과만** 바뀐다. 지난 일자 파일은 다시 계산하지 않는다.
 
+### 투신 수급 (`config.FLOW_*`)
+- 대상: 시총 300억 ~ 1조 (KRX 전종목 시세의 기준일 시총)
+- 오늘 많이 산: 기준일 투신 순매수 ÷ 시총 ≥ 0.1%
+- 연속 순매수: 기준일까지 연속 3일 이상, 또는 최근 10거래일 중 6일 이상 순매수(누적도 +)
+- flow.json은 다음 실행 때마다 새로 만드므로 기준을 바꾸면 다음 기준일부터 반영된다.
+
 ---
 
 ## 실행 일정과 시각 규칙
@@ -88,7 +102,11 @@ POST https://api.github.com/repos/shinkiyeol9814-droid/kosdaq-surge/dispatches
 {"event_type": "snapshot", "client_payload": {"slot": "auto"}}
 ```
 토큰은 fine-grained(이 리포만, Contents: Read and write)이고 **cron-job.org에만** 있다.
-Actions Secrets는 쓰지 않는다(커밋은 기본 `GITHUB_TOKEN`).
+커밋은 기본 `GITHUB_TOKEN`. Actions Secrets엔 KRX 계정(`KRX_ID`/`KRX_PW`)만 있고 'Fund flow' 단계에만 넘긴다.
+
+투신 수급(`flows.py`)은 워크플로우가 돌 때마다 뒤따라 돈다. 기준일은 18:00 이후면 오늘, 그 전이면 직전
+개장일이고, 이미 있으면 로그인도 안 하고 끝난다. 그날 확정치는 GitHub `schedule`(평일 18:35 KST)이 받고,
+그게 밀리거나 빠지면 다음 날 장중 호출이 메운다. 실패해도(`continue-on-error`) 스냅샷 커밋은 나간다.
 
 `auto`는 지금 시각으로 슬롯을 고른다(`run.AUTO_WINDOW`):
 10:05~10:29 → 1005, 12:05~12:29 → 1205, 14:05~14:29 → 1405, 15:31~15:59 → close. 그 밖(10:35 등)은 그냥 끝.
@@ -122,6 +140,16 @@ Actions Secrets는 쓰지 않는다(커밋은 기본 `GITHUB_TOKEN`).
   `html.unescape` 후 저장한다(화면이 다시 이스케이프하므로 안 풀면 `&amp;quot;`로 보인다).
 - 러너(미국)에서도 정상 동작 확인(2026-10-23).
 
+## KRX 정보데이터시스템 (투신 수급)
+
+- 2026년부터 로그인이 필요하다 — 비로그인 요청은 `400 "LOGOUT"`. pykrx(1.2.8+)가 `KRX_ID`/`KRX_PW`
+  환경변수로 로그인한다. 자매 프로젝트 stockapp이 같은 방식으로 미국 러너에서 매일 돌고 있다.
+- 브라우저 로그인 화면엔 키보드 보안(nProtect)이 붙어 있지만 pykrx의 폼 POST(`MDCCOMS001D1.cmd`)는 통한다.
+  로그인을 직접 구현하거나 보안 장치를 우회하려 하지 말 것 — pykrx가 깨지면 pykrx를 올린다.
+- 투신 순매수 = [12010] 투자자별 순매수상위종목(`MDCSTAT02401`, 투신 3000), 시세·시총 = [12001] 전종목 시세.
+  둘 다 시장당 하루 한 번 요청.
+- 로컬엔 계정이 없다. 수집은 Actions에서만 확인한다.
+
 ---
 
 ## 백필의 한계
@@ -147,7 +175,8 @@ Actions Secrets는 쓰지 않는다(커밋은 기본 `GITHUB_TOKEN`).
 
 ## 화면 (`docs/`)
 
-- 상태는 URL 해시 `#YYYY-MM-DD/slot` — 링크 공유·뒤로 가기 가능(`hashchange` 처리).
+- 상태는 URL 해시 `#YYYY-MM-DD/slot`, 투신 탭은 `#flow/t`(오늘 많이 산)·`#flow/k`(연속) —
+  링크 공유·뒤로 가기 가능(`hashchange` 처리).
 - `index.json`은 매번 `?t=now`로, 일자 파일은 `?v=updated`로 받는다(Pages 캐시 10분 회피).
 - 다크 기본 + `prefers-color-scheme: light` 대응. 색은 `:root` 토큰으로만.
 - 휴대폰(≤640px): `#` 열·종목코드 숨김, **종목명 열 sticky** — 표를 옆으로 밀어도 이름이 남는다.

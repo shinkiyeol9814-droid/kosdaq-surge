@@ -21,3 +21,13 @@ TURNOVER_PCT = [(120, 3), (60, 2), (20, 1)]
 
 KEEP_DAYS = 30                   # 화면에 남길 거래일 수(일자 탭)
 SNAP_KEEP_DAYS = 45              # 스냅샷 보관 거래일 수(중앙값 20일 + 여유)
+
+# ── 투신 수급 (KRX 정보데이터시스템, 장 마감 뒤 확정치) ──────────────────────
+FLOW_MIN_MCAP = 300e8            # 시가총액 300억 이상
+FLOW_MAX_MCAP = 1e12             # … 1조 이하만
+FLOW_MIN_PCT = 0.1               # '오늘 많이 산' — 투신 순매수 ÷ 시가총액(%) 하한
+FLOW_DAYS = 10                   # 매수일·연속일을 세는 거래일 수
+FLOW_STREAK = 3                  # '연속 순매수' — 연속 이 일수 이상 …
+FLOW_BUY_DAYS = 6                # … 또는 FLOW_DAYS 중 이 일수 이상 순매수(누적도 순매수일 때)
+FLOW_FINAL_HHMM = "1800"         # 이 시각 뒤에야 그날 수급을 확정치로 받는다
+FLOW_KEEP_DAYS = 20              # data/flow 보관 거래일 수

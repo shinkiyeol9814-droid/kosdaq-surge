@@ -1,12 +1,13 @@
 // 거래대금 급증 스크리너 — data/index.json과 data/days/{일자}.json을 읽어 그린다.
-// 일자 파일 구조는 surge/screen.py 머리말 참고.
+// 일자 파일 구조는 surge/screen.py 머리말 참고. 투신 수급 탭은 data/flow.json(surge/flow.py 머리말).
 (() => {
   const SLOTS = ["1005", "1205", "1405", "close"];
   const LABEL = { all: "종합", "1005": "10:05", "1205": "12:05", "1405": "14:05", close: "종가" };
   const WD = "일월화수목금토";
   const $ = (id) => document.getElementById(id);
 
-  const state = { idx: null, docs: {}, day: null, slot: "all", mkt: "", sort: null };
+  const state = { view: "surge", idx: null, docs: {}, day: null, slot: "all", mkt: "", sort: null,
+    flow: null, ftab: "t" };
 
   const fmt = (v, d = 0) => (v == null || isNaN(v) ? "–" :
     Number(v).toLocaleString("ko-KR", { minimumFractionDigits: d, maximumFractionDigits: d }));
@@ -173,6 +174,133 @@
     }).join("");
   }
 
+  // ── 투신 수급 ─────────────────────────────────────────────────────────
+  const FTABS = { t: "오늘 많이 산", k: "연속 순매수" };
+
+  function renderFlowRules(c) {
+    const eok = (w) => fmt(w / 1e8);
+    $("flow-rules").innerHTML = `
+      <p>시가총액 <b>${eok(c.min_mcap)}억 ~ ${eok(c.max_mcap)}억</b> 종목만 본다. 투신 순매수는 KRX 투자자별
+        순매수(기관 중 투자신탁)의 장 마감 뒤 확정치다.</p>
+      <p><b>오늘 많이 산</b> — 기준일 투신 순매수가 시가총액의 <b>${c.min_pct}%</b> 이상.</p>
+      <p><b>연속 순매수</b> — 기준일까지 <b>${c.streak}일</b> 이상 연속 순매수, 또는 최근 <b>${c.days}거래일</b> 중
+        <b>${c.buy_days}일</b> 이상 순매수(그 기간 누적도 순매수).</p>
+      <p>막대는 최근 ${c.days}거래일 투신 순매수 — 위로 빨강은 순매수, 아래로 파랑은 순매도.</p>`;
+  }
+
+  function flowBars(s) {
+    if (!s || !s.length) return "";
+    const W = 90, H = 26, n = s.length, step = W / n, bw = Math.max(2, step * 0.66);
+    const m = Math.max(...s.map(Math.abs)) || 1, mid = H / 2;
+    const g = s.map((v, i) => {
+      const h = Math.max(v ? 1 : 0, Math.abs(v) / m * (mid - 1)), x = i * step + (step - bw) / 2;
+      const col = v > 0 ? "var(--up)" : "var(--down)";
+      return `<rect x="${x.toFixed(1)}" y="${(v > 0 ? mid - h : mid).toFixed(1)}" width="${bw.toFixed(1)}" height="${h.toFixed(1)}" fill="${col}"/>`;
+    }).join("");
+    return `<svg class="flowbars" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="최근 투신 순매수">` +
+      `<line x1="0" x2="${W}" y1="${mid}" y2="${mid}" stroke="var(--line)" stroke-width="1"/>${g}</svg>`;
+  }
+
+  const FCOLS = [
+    { k: "idx", t: "#" },
+    { k: "name", t: "종목", sort: true },
+    { k: "bars", t: "투신 순매수 추이" },
+    { k: "net", t: "순매수(억)", sort: true, r: true },
+    { k: "pct", t: "시총 대비", sort: true, r: true },
+    { k: "bd", t: "매수일", sort: true, r: true },
+    { k: "st", t: "연속", sort: true, r: true },
+    { k: "sum", t: "누적(억)", sort: true, r: true },
+    { k: "p", t: "종가", sort: true, r: true },
+    { k: "c", t: "등락률", sort: true, r: true },
+    { k: "cap", t: "시총(억)", sort: true, r: true },
+  ];
+
+  function renderFlowTabs() {
+    const st = Object.values(state.flow.stocks);
+    $("ftabs").innerHTML = Object.entries(FTABS).map(([k, t]) =>
+      `<button data-f="${k}" class="${k === state.ftab ? "on" : ""}">${t}<span class="n">${st.filter((x) => x[k]).length}</span></button>`).join("");
+  }
+
+  function renderFlow() {
+    const f = state.flow, nd = f.days.length;
+    let rows = Object.entries(f.stocks).filter(([, x]) => x[state.ftab]).map(([code, x]) => ({ code, ...x }));
+    if (state.mkt) rows = rows.filter((r) => r.m === state.mkt);
+    const keys = state.sort ? [state.sort, { k: "pct", dir: -1 }]
+      : state.ftab === "t" ? [{ k: "pct", dir: -1 }]
+      : [{ k: "st", dir: -1 }, { k: "bd", dir: -1 }, { k: "sum", dir: -1 }];
+    rows.sort((a, b) => {
+      for (const { k, dir } of keys) {
+        const x = k === "name" ? a.n : a[k], y = k === "name" ? b.n : b[k];
+        const c = typeof x === "string" ? x.localeCompare(y, "ko") : x - y;
+        if (c) return c * dir;
+      }
+      return 0;
+    });
+
+    $("thead").innerHTML = FCOLS.map((c) => {
+      const s = state.sort && state.sort.k === c.k ? (state.sort.dir > 0 ? "asc" : "desc") : "";
+      return `<th data-k="${c.k}" class="${c.sort ? "sort" : ""} ${c.r ? "r" : ""} ${s}">${c.t}</th>`;
+    }).join("");
+    const wd = WD[new Date(f.d + "T12:00:00Z").getUTCDay()];
+    $("summary").innerHTML = `${FTABS[state.ftab]} <b>${rows.length}</b>종목 · 기준일 ${f.d.slice(5)} (${wd}) 장 마감 뒤 확정치`;
+    $("note").hidden = nd >= f.criteria.days;
+    $("note").textContent = `아직 ${nd}거래일치만 모였다 — 매수일·연속일은 ${nd}일 안에서 센 값이다.`;
+    $("empty").hidden = rows.length > 0;
+    $("empty").textContent = "이 조건에 해당하는 종목이 없다.";
+    $("tbody").innerHTML = rows.map((r, i) => `<tr>
+        <td class="idx">${i + 1}</td>
+        <td class="name"><a class="nm" href="https://finance.naver.com/item/main.naver?code=${r.code}" target="_blank" rel="noopener">${esc(r.n)}</a><span class="cd">${r.code}</span><span class="mk">${r.m === "K" ? "코스피" : "코스닥"}</span></td>
+        <td title="${f.days.map((d, j) => `${d.slice(5)} ${fmt(r.s[j], 1)}억`).join("\n")}">${flowBars(r.s)}</td>
+        <td class="r ${cls(r.net)} strong">${r.net > 0 ? "+" : ""}${fmt(r.net, 1)}</td>
+        <td class="r ${cls(r.pct)}">${fmt(r.pct, 2)}%</td>
+        <td class="r">${r.bd}<span class="sub">/${nd}</span></td>
+        <td class="r ${r.st ? "strong" : ""}">${r.st ? r.st + "일" : "–"}</td>
+        <td class="r ${cls(r.sum)}">${r.sum > 0 ? "+" : ""}${fmt(r.sum, 1)}</td>
+        <td class="r">${fmt(r.p)}</td>
+        <td class="r ${cls(r.c)}">${r.c > 0 ? "+" : ""}${fmt(r.c, 2)}%</td>
+        <td class="r">${fmt(r.cap)}</td>
+      </tr>`).join("");
+  }
+
+  async function showFlow() {
+    if (!state.flow) {
+      $("tbody").innerHTML = "";
+      $("summary").textContent = "불러오는 중…";
+      try {
+        state.flow = await getJSON(`data/flow.json?t=${Date.now()}`);
+      } catch (e) {
+        $("thead").innerHTML = ""; $("summary").textContent = ""; $("note").hidden = true;
+        $("empty").hidden = false; $("empty").textContent = "투신 수급 데이터가 아직 없다.";
+        return;
+      }
+      renderFlowRules(state.flow.criteria);
+      if (state.view === "flow") $("updated").textContent = `갱신 ${state.flow.updated}`;
+    }
+    renderFlowTabs();
+    renderFlow();
+    history.replaceState(null, "", `#flow/${state.ftab}`);
+  }
+
+  function render() {
+    if (state.view === "flow") renderFlow(); else renderTable(state.docs[state.day]);
+  }
+
+  function setView(v) {
+    state.view = v; state.sort = null;
+    $("views").querySelectorAll("button").forEach((x) => x.classList.toggle("on", x.dataset.v === v));
+    $("v-surge").hidden = v !== "surge";
+    $("v-flow").hidden = v !== "flow";
+    const src = v === "flow" ? state.flow : state.idx;
+    $("updated").textContent = src ? `갱신 ${src.updated}` : "";
+    if (v === "flow") return showFlow().catch((e) => { $("summary").textContent = `불러오기 실패: ${e.message}`; });
+    if (!state.idx || !state.day) {
+      $("thead").innerHTML = ""; $("tbody").innerHTML = ""; $("summary").textContent = ""; $("note").hidden = true;
+      $("empty").hidden = false; $("empty").textContent = "아직 수집된 데이터가 없다.";
+      return;
+    }
+    show().catch((e) => { $("summary").textContent = `불러오기 실패: ${e.message}`; });
+  }
+
   // ── 흐름 ──────────────────────────────────────────────────────────────
   async function show() {
     renderDays();
@@ -189,6 +317,14 @@
   }
 
   function bind() {
+    $("views").addEventListener("click", (e) => {
+      const b = e.target.closest("button"); if (!b || b.dataset.v === state.view) return;
+      setView(b.dataset.v);
+    });
+    $("ftabs").addEventListener("click", (e) => {
+      const b = e.target.closest("button"); if (!b) return;
+      state.ftab = b.dataset.f; state.sort = null; showFlow();
+    });
     $("days").addEventListener("click", (e) => {
       const b = e.target.closest("button"); if (!b) return;
       state.day = b.dataset.d; state.sort = null; show();
@@ -201,7 +337,7 @@
       const b = e.target.closest("button"); if (!b) return;
       state.mkt = b.dataset.m;
       $("mkt").querySelectorAll("button").forEach((x) => x.classList.toggle("on", x === b));
-      renderTable(state.docs[state.day]);
+      render();
     });
     $("thead").addEventListener("click", (e) => {
       const th = e.target.closest("th.sort"); if (!th) return;
@@ -209,37 +345,37 @@
       const cur = state.sort && state.sort.k === k ? state.sort.dir : 0;
       // 첫 클릭은 큰 값부터(이름만 가나다순), 다시 누르면 뒤집는다.
       state.sort = { k, dir: cur ? -cur : (k === "name" ? 1 : -1) };
-      renderTable(state.docs[state.day]);
+      render();
     });
   }
 
   async function init() {
     bind();
+    const [d, s] = decodeURIComponent(location.hash.slice(1)).split("/");
     try {
       state.idx = await getJSON(`data/index.json?t=${Date.now()}`);
-    } catch (e) {
-      $("empty").hidden = false;
-      $("empty").textContent = "아직 수집된 데이터가 없다.";
-      return;
-    }
-    $("updated").textContent = `갱신 ${state.idx.updated}`;
-    renderRules(state.idx.criteria);
-    const [d, s] = decodeURIComponent(location.hash.slice(1)).split("/");
-    state.day = state.idx.days.some((x) => x.d === d) ? d : state.idx.days[0]?.d;
-    state.slot = LABEL[s] ? s : "all";
-    if (!state.day) { $("empty").hidden = false; $("empty").textContent = "아직 수집된 데이터가 없다."; return; }
-    show().catch((e) => { $("summary").textContent = `불러오기 실패: ${e.message}`; });
+      renderRules(state.idx.criteria);
+      state.day = state.idx.days.some((x) => x.d === d) ? d : state.idx.days[0]?.d;
+      state.slot = LABEL[s] ? s : "all";
+    } catch (e) { /* 급증 데이터가 없어도 투신 탭은 볼 수 있게 */ }
+    if (d === "flow") state.ftab = FTABS[s] ? s : "t";
+    setView(d === "flow" ? "flow" : "surge");
   }
 
-  // 주소의 #일자/시각만 바꿔 들어와도(뒤로 가기·링크) 그 화면으로
+  // 주소의 #일자/시각(또는 #flow/목록)만 바꿔 들어와도(뒤로 가기·링크) 그 화면으로
   window.addEventListener("hashchange", () => {
-    if (!state.idx) return;
     const [d, s] = decodeURIComponent(location.hash.slice(1)).split("/");
-    if (d === state.day && s === state.slot) return;
+    if (d === "flow") {
+      const t = FTABS[s] ? s : "t";
+      if (state.view === "flow" && t === state.ftab) return;
+      state.ftab = t;
+      return setView("flow");
+    }
+    if (!state.idx) return;
+    if (state.view === "surge" && d === state.day && s === state.slot) return;
     if (state.idx.days.some((x) => x.d === d)) state.day = d;
     state.slot = LABEL[s] ? s : "all";
-    state.sort = null;
-    show();
+    setView("surge");
   });
 
   init();
