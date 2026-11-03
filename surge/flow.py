@@ -48,5 +48,5 @@ def build(days: list, listing: dict, updated: str) -> dict:
             stocks[code]["ohlc"] = ex["k"]
     return {"ver": VERSION, "updated": updated, "d": days[-1], "days": days, "stocks": stocks,
             "criteria": {"min_mcap": C.FLOW_MIN_MCAP, "max_mcap": C.FLOW_MAX_MCAP,
-                         "min_pct": C.FLOW_MIN_PCT, "hl_pct": C.FLOW_HL_PCT, "days": C.FLOW_DAYS,
+                         "min_pct": C.FLOW_MIN_PCT, "box_pct": C.FLOW_BOX_PCT, "days": C.FLOW_DAYS,
                          "streak": C.FLOW_STREAK, "buy_days": C.FLOW_BUY_DAYS}}
