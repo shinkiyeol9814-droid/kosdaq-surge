@@ -120,7 +120,8 @@ def rebuild_index():
     store.save_index({"updated": store.now_kst().strftime("%Y-%m-%d %H:%M"), "days": out,
                       "criteria": {"min_mcap": C.MIN_MCAP, "base_days": C.BASE_DAYS,
                                    "multiple": C.MULTIPLE, "min_value": C.MIN_VALUE,
-                                   "scale": C.SCALE_RANKS, "turnover": C.TURNOVER_PCT}})
+                                   "scale": C.SCALE_RANKS, "turnover": C.TURNOVER_PCT,
+                                   "hl_mcap": C.HL_MCAP}})
 
 
 def prune_snapshots():

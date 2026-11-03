@@ -31,7 +31,8 @@ def main():
     latest = target_day(now)
     want = [d.isoformat() for d in krxcal.open_days_before(latest, C.FLOW_DAYS + 2)] + [latest.isoformat()]
     missing = [d for d in want if d not in store.flow_days()]
-    if not missing and store.load_flow().get("d") == latest.isoformat():
+    cur = store.load_flow()
+    if not missing and cur.get("d") == latest.isoformat() and cur.get("ver") == flow.VERSION:
         print(f"투신 수급 {latest} 이미 있음")
         return 0
     if not krx.has_login():

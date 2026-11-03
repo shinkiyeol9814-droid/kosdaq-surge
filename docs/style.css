@@ -10,6 +10,7 @@
   --up: #ef5350;
   --down: #4a8ff0;
   --flat: #888888;
+  --hl: rgba(240, 180, 41, .34);
   color-scheme: dark;
 }
 @media (prefers-color-scheme: light) {
@@ -23,6 +24,7 @@
     --faint: #9aa2ae;
     --accent: #c98a00;
     --down: #1565c0;
+    --hl: #fff3c4;
     color-scheme: light;
   }
 }
@@ -112,6 +114,8 @@ td.name .news { display: block; font-size: .74rem; color: var(--muted); text-dec
 td.name .news:hover { color: var(--text); }
 .mult { font-weight: 700; }
 .strong { font-weight: 700; }
+/* 눈여겨볼 칸(시총 1조 미만, 시총 대비 투신 순매수 0.3% 이상) — 노란 바탕 */
+.hl, #tbl td.hl { background: var(--hl); }
 .sub { color: var(--faint); font-size: .72rem; }
 .up { color: var(--up); }
 .down { color: var(--down); }

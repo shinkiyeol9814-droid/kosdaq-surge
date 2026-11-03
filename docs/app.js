@@ -37,7 +37,8 @@
         작은 종목에 유리해 서로 빈 곳을 메운다. 별이 없으면 배수로는 급증이지만 시장 전체로 보면 크지 않다는 뜻이다.</p>
       <table class="grade-tbl"><thead><tr><th></th><th>규모</th><th>손바뀜</th></tr></thead>
         <tbody>${rows}</tbody></table>
-      <p>같은 날 여러 시각에 걸쳐 잡힐수록 일시적 쏠림이 아니라 하루 내내 이어진 급증이다.</p>`;
+      <p>같은 날 여러 시각에 걸쳐 잡힐수록 일시적 쏠림이 아니라 하루 내내 이어진 급증이다.</p>
+      <p>시가총액 <span class="hl">${eok(c.hl_mcap ?? 1e12)}억 미만</span>은 노란 칸.</p>`;
   }
 
   // ── 일자·시각 탭 ──────────────────────────────────────────────────────
@@ -136,6 +137,7 @@
   }
 
   function renderTable(doc) {
+    const hlCap = (state.idx.criteria.hl_mcap ?? 1e12) / 1e8;     // 억
     let rows = buildRows(doc);
     if (state.mkt) rows = rows.filter((r) => r.st.m === state.mkt);
     sortRows(rows);
@@ -167,7 +169,7 @@
         <td class="r mult">${fmt(r.mult, 1)}배</td>
         <td class="r">${fmt(r.price)}</td>
         <td class="r ${cls(r.chg)}">${r.chg > 0 ? "+" : ""}${fmt(r.chg, 2)}%</td>
-        <td class="r">${fmt(r.cap)}</td>
+        <td class="r ${r.cap != null && r.cap < hlCap ? "hl" : ""}">${fmt(r.cap)}</td>
         <td class="r">${fmt(r.value, 1)}</td>
         <td class="r">${fmt(r.turn, 1)}%<span class="basis">시총</span></td>
       </tr>`;
@@ -185,7 +187,8 @@
       <p><b>오늘 많이 산</b> — 기준일 투신 순매수가 시가총액의 <b>${c.min_pct}%</b> 이상.</p>
       <p><b>연속 순매수</b> — 기준일까지 <b>${c.streak}일</b> 이상 연속 순매수, 또는 최근 <b>${c.days}거래일</b> 중
         <b>${c.buy_days}일</b> 이상 순매수(그 기간 누적도 순매수).</p>
-      <p>막대는 최근 ${c.days}거래일 투신 순매수 — 위로 빨강은 순매수, 아래로 파랑은 순매도.</p>`;
+      <p>막대는 최근 ${c.days}거래일 투신 순매수 — 위로 빨강은 순매수, 아래로 파랑은 순매도.
+        시총 대비 <span class="hl">${c.hl_pct ?? 0.3}% 이상</span>은 노란 칸.</p>`;
   }
 
   function flowBars(s) {
@@ -205,6 +208,7 @@
     { k: "idx", t: "#" },
     { k: "name", t: "종목", sort: true },
     { k: "bars", t: "투신 순매수 추이" },
+    { k: "chart", t: "3개월 일봉" },
     { k: "net", t: "순매수(억)", sort: true, r: true },
     { k: "pct", t: "시총 대비", sort: true, r: true },
     { k: "bd", t: "매수일", sort: true, r: true },
@@ -225,9 +229,9 @@
     const f = state.flow, nd = f.days.length;
     let rows = Object.entries(f.stocks).filter(([, x]) => x[state.ftab]).map(([code, x]) => ({ code, ...x }));
     if (state.mkt) rows = rows.filter((r) => r.m === state.mkt);
-    const keys = state.sort ? [state.sort, { k: "pct", dir: -1 }]
-      : state.ftab === "t" ? [{ k: "pct", dir: -1 }]
-      : [{ k: "st", dir: -1 }, { k: "bd", dir: -1 }, { k: "sum", dir: -1 }];
+    // 두 목록 모두 기본은 시총 대비 순매수 큰 순
+    const keys = state.sort ? [state.sort, { k: "pct", dir: -1 }] : [{ k: "pct", dir: -1 }];
+    const hlPct = f.criteria.hl_pct ?? 0.3;
     rows.sort((a, b) => {
       for (const { k, dir } of keys) {
         const x = k === "name" ? a.n : a[k], y = k === "name" ? b.n : b[k];
@@ -251,8 +255,9 @@
         <td class="idx">${i + 1}</td>
         <td class="name"><a class="nm" href="https://finance.naver.com/item/main.naver?code=${r.code}" target="_blank" rel="noopener">${esc(r.n)}</a><span class="cd">${r.code}</span><span class="mk">${r.m === "K" ? "코스피" : "코스닥"}</span></td>
         <td title="${f.days.map((d, j) => `${d.slice(5)} ${fmt(r.s[j], 1)}억`).join("\n")}">${flowBars(r.s)}</td>
+        <td>${candleSVG(r.ohlc)}</td>
         <td class="r ${cls(r.net)} strong">${r.net > 0 ? "+" : ""}${fmt(r.net, 1)}</td>
-        <td class="r ${cls(r.pct)}">${fmt(r.pct, 2)}%</td>
+        <td class="r ${cls(r.pct)} ${r.pct >= hlPct ? "hl" : ""}">${fmt(r.pct, 2)}%</td>
         <td class="r">${r.bd}<span class="sub">/${nd}</span></td>
         <td class="r ${r.st ? "strong" : ""}">${r.st ? r.st + "일" : "–"}</td>
         <td class="r ${cls(r.sum)}">${r.sum > 0 ? "+" : ""}${fmt(r.sum, 1)}</td>
