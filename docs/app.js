@@ -186,7 +186,8 @@
       <p><b>연속 순매수</b> — 기준일까지 <b>${c.streak}일</b> 이상 연속 순매수, 또는 최근 <b>${c.days}거래일</b> 중
         <b>${c.buy_days}일</b> 이상 순매수(그 기간 누적도 순매수).</p>
       <p>막대는 최근 ${c.days}거래일 투신 순매수 — 위로 빨강은 순매수, 아래로 파랑은 순매도.
-        시총 대비 <span class="box">${c.box_pct ?? 0.3}% 이상</span>은 빨간 테두리.</p>`;
+        시총 대비는 <span class="pill p1">${c.box_pct ?? 0.3}%</span> <span class="pill p2">${PILL[0]}%</span>
+        <span class="pill p3">${PILL[1]}%</span> 이상으로 나눠 진하게.</p>`;
   }
 
   function flowBars(s) {
@@ -228,6 +229,14 @@
     if (on) on.scrollIntoView({ block: "nearest", inline: "nearest" });
   }
 
+  // 시총 대비 단계 — box_pct(설정) 이상 p1, PILL[0] p2, PILL[1] p3
+  const PILL = [0.5, 1];
+  function pill(p, box) {
+    p = Math.round(p * 100) / 100;          // 보이는 숫자(소수 둘째)로 단계를 정한다 — 0.4996이 0.50%인데 연하면 어색
+    const t = p >= PILL[1] ? 3 : p >= PILL[0] ? 2 : p >= box ? 1 : 0;
+    return t ? `<span class="pill p${t}">${fmt(p, 2)}%</span>` : `${fmt(p, 2)}%`;
+  }
+
   function renderFlowTabs() {
     const st = Object.values(state.flow.stocks);
     $("ftabs").innerHTML = Object.entries(FTABS).map(([k, t]) =>
@@ -266,7 +275,7 @@
         <td title="${f.days.map((d, j) => `${d.slice(5)} ${fmt(r.s[j], 1)}억`).join("\n")}">${flowBars(r.s)}</td>
         <td>${candleSVG(r.ohlc)}</td>
         <td class="r ${cls(r.net)} strong">${r.net > 0 ? "+" : ""}${fmt(r.net, 1)}</td>
-        <td class="r ${cls(r.pct)} ${r.pct >= boxPct ? "box" : ""}">${fmt(r.pct, 2)}%</td>
+        <td class="r ${r.pct >= boxPct ? "" : cls(r.pct)}">${pill(r.pct, boxPct)}</td>
         <td class="r">${r.bd}<span class="sub">/${nd}</span></td>
         <td class="r ${r.st ? "strong" : ""}">${r.st ? r.st + "일" : "–"}</td>
         <td class="r ${cls(r.sum)}">${r.sum > 0 ? "+" : ""}${fmt(r.sum, 1)}</td>

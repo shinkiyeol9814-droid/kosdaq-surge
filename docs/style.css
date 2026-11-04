@@ -10,6 +10,9 @@
   --up: #ef5350;
   --down: #4a8ff0;
   --flat: #888888;
+  --pill-1: rgba(239, 83, 80, 0.18);
+  --pill-1-text: #ff8a80;
+  --pill-2: rgba(239, 83, 80, 0.5);
   color-scheme: dark;
 }
 @media (prefers-color-scheme: light) {
@@ -23,6 +26,9 @@
     --faint: #9aa2ae;
     --accent: #c98a00;
     --down: #1565c0;
+    --pill-1: rgba(239, 83, 80, 0.14);
+    --pill-1-text: #c62828;
+    --pill-2: rgba(239, 83, 80, 0.7);
     color-scheme: light;
   }
 }
@@ -112,9 +118,11 @@ td.name .news { display: block; font-size: .74rem; color: var(--muted); text-dec
 td.name .news:hover { color: var(--text); }
 .mult { font-weight: 700; }
 .strong { font-weight: 700; }
-/* 투신 시총 대비 순매수가 FLOW_BOX_PCT 이상인 칸 — 빨간 테두리(칸 크기가 안 변하게 inset 그림자로) */
-.box, #tbl td.box { box-shadow: inset 0 0 0 2px var(--up); font-weight: 700; }
-.rules-body .box { padding: 0 4px; border-radius: 3px; }
+/* 투신 시총 대비 순매수 알약 — FLOW_BOX_PCT 이상 연하게, 0.5% 중간, 1% 진하게 */
+.pill { display: inline-block; padding: 1px 8px; border-radius: 999px; font-weight: 600; }
+.pill.p1 { background: var(--pill-1); color: var(--pill-1-text); }
+.pill.p2 { background: var(--pill-2); color: #fff; }
+.pill.p3 { background: var(--up); color: #fff; font-weight: 700; }
 .sub { color: var(--faint); font-size: .72rem; }
 .up { color: var(--up); }
 .down { color: var(--down); }
