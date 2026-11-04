@@ -4,17 +4,17 @@
   오늘 많이 산    그날 투신 순매수 ÷ 시가총액 ≥ FLOW_MIN_PCT
   연속 순매수     연속 FLOW_STREAK일 이상, 또는 최근 FLOW_DAYS일 중 FLOW_BUY_DAYS일 이상(누적도 순매수)
 
-docs/data/flow.json
+docs/data/flow/{기준일}.json — 하루 하나, FLOW_SHOW_DAYS 보관. 목록은 docs/data/flow/index.json
   d 기준일, days 최근 FLOW_DAYS 거래일, criteria
   stocks.{코드} = {n 이름, m 시장, p 종가, c 등락률, cap 시총(억), net 그날 순매수(억), pct 시총 대비(%),
                    bd 매수일 수, st 연속 매수일, sum 누적 순매수(억), s 일별 순매수(억) 오래된 순,
                    t 1이면 '오늘 많이 산', k 1이면 '연속 순매수', ohlc 3개월 일봉 [[시,고,저,종]...]}
-  ver 이 구조의 판 — VERSION과 다르면 flows.py가 기준일이 같아도 다시 만든다
+  ver 이 구조의 판 — index.json의 ver가 VERSION과 다르면 flows.py가 모든 일자를 다시 만든다
 """
 from surge import config as C
 from surge import screen, store
 
-VERSION = 2                      # flow.json 구조를 바꾸면 올린다(2: 3개월 일봉 추가)
+VERSION = 3                      # 일자 파일 구조를 바꾸면 올린다(2: 3개월 일봉, 3: 일자별 파일)
 
 
 def build(days: list, listing: dict, updated: str) -> dict:

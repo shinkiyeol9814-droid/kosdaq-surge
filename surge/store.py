@@ -5,7 +5,8 @@
   docs/data/days/{YYYY-MM-DD}.json     그날 포착 결과 — 화면이 읽는다(GitHub Pages)
   docs/data/index.json                 일자 목록과 시각별 건수
   data/flow/{YYYY-MM-DD}.json          그날 투신 순매수 — 연속일 계산용(화면엔 안 나감)
-  docs/data/flow.json                  투신 탭이 읽는 최신 결과
+  docs/data/flow/{YYYY-MM-DD}.json     그날 투신 두 목록 — 투신 탭이 읽는다
+  docs/data/flow/index.json            투신 일자 목록과 목록별 건수
 
 스냅샷엔 중앙값 계산에 필요한 누적거래대금만 백만원 단위 정수로 남긴다 — 하루 4번 × 약 4천 종목이
 커밋되므로 이름·가격까지 넣으면 리포지토리가 금방 불어난다.
@@ -20,7 +21,8 @@ SNAP_DIR = os.path.join(ROOT, "data", "snap")
 DAYS_DIR = os.path.join(ROOT, "docs", "data", "days")
 INDEX = os.path.join(ROOT, "docs", "data", "index.json")
 FLOW_DIR = os.path.join(ROOT, "data", "flow")
-FLOW_OUT = os.path.join(ROOT, "docs", "data", "flow.json")
+FLOW_OUT_DIR = os.path.join(ROOT, "docs", "data", "flow")
+FLOW_INDEX = os.path.join(FLOW_OUT_DIR, "index.json")
 
 
 def now_kst():
@@ -97,13 +99,31 @@ def flow_days() -> list:
     return sorted(f[:10] for f in os.listdir(FLOW_DIR) if f.endswith(".json"))
 
 
-def load_flow() -> dict:
+def load_flow_index() -> dict:
     try:
-        with open(FLOW_OUT, "r", encoding="utf-8") as f:
+        with open(FLOW_INDEX, "r", encoding="utf-8") as f:
             return json.load(f)
     except Exception:
         return {}
 
 
-def save_flow(obj: dict):
-    _write_json(FLOW_OUT, obj)
+def save_flow_index(obj: dict):
+    _write_json(FLOW_INDEX, obj)
+
+
+def flow_result_days() -> list:
+    if not os.path.isdir(FLOW_OUT_DIR):
+        return []
+    return sorted(f[:10] for f in os.listdir(FLOW_OUT_DIR) if f.endswith(".json") and f[:4].isdigit())
+
+
+def load_flow_result(day: str) -> dict:
+    try:
+        with open(os.path.join(FLOW_OUT_DIR, f"{day}.json"), "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+
+def save_flow_result(day: str, obj: dict):
+    _write_json(os.path.join(FLOW_OUT_DIR, f"{day}.json"), obj)

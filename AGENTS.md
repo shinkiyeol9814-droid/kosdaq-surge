@@ -49,7 +49,7 @@ https://kosdaq-surge.yunhee2368.workers.dev/ 와 같은 기능을 목표로 2026
 | `surge/screen.py` | 중앙값 기준선, 포착, 등급, 일자 파일, 색인, 보관 기간 정리 |
 | `surge/store.py` | 파일 경로·읽기/쓰기 (KST 기준 `now_kst()`) |
 | `surge/krxcal.py` | 휴장일 판정 (stdlib `calendar`와 이름이 겹쳐 krxcal로 지었다) |
-| `flows.py` | 투신 수급 — 빠진 거래일의 KRX 투신 순매수를 채우고 `docs/data/flow.json`을 만든다 |
+| `flows.py` | 투신 수급 — 빠진 거래일의 KRX 투신 순매수를 채우고 일자별 결과(`docs/data/flow/`)를 만든다 |
 | `surge/krx.py` | KRX 정보데이터시스템(pykrx, 로그인 필요) — 투신 순매수 전 종목, 전종목 시세 |
 | `surge/flow.py` | 투신 두 목록(오늘 많이 산 / 연속 순매수) 계산 |
 | `docs/index.html · app.js · style.css` | 정적 화면 |
@@ -66,8 +66,9 @@ docs/data/days/{YYYY-MM-DD}.json     화면이 읽는 그날 결과. 30거래일
   note = 재구성한 날 등 화면에 띄울 한 줄
 docs/data/index.json                 일자 목록·시각별 건수·기준값(criteria), 화면 첫 로딩용
 data/flow/{YYYY-MM-DD}.json          {"v": {코드: 투신 순매수(백만원 정수, 0 제외)}} 또는 {"x": "휴장"}
-                                     연속일 계산 전용. 20거래일 보관(FLOW_KEEP_DAYS)
-docs/data/flow.json                  투신 탭 — 최신 기준일 하나만. 구조는 surge/flow.py 머리말
+                                     연속일 계산 전용. 45거래일 보관(FLOW_KEEP_DAYS = 화면 30일 + 그 앞 10일 + 여유)
+docs/data/flow/{YYYY-MM-DD}.json     투신 탭의 그날 두 목록. 30거래일 보관(FLOW_SHOW_DAYS). 구조는 surge/flow.py 머리말
+docs/data/flow/index.json            투신 일자 목록과 목록별 건수 {ver, updated, days: [{d, t, k}]}
 ```
 '종합' 탭은 저장하지 않는다 — 브라우저가 `slots`를 합쳐 만든다(정렬: 잡힌 시각 수 → 최고 배수).
 
@@ -90,7 +91,9 @@ docs/data/flow.json                  투신 탭 — 최신 기준일 하나만. 
 - 대상: 시총 300억 ~ 1조 (KRX 전종목 시세의 기준일 시총)
 - 오늘 많이 산: 기준일 투신 순매수 ÷ 시총 ≥ 0.1%
 - 연속 순매수: 기준일까지 연속 3일 이상, 또는 최근 10거래일 중 6일 이상 순매수(누적도 +)
-- flow.json은 다음 실행 때마다 새로 만드므로 기준을 바꾸면 다음 기준일부터 반영된다.
+- 시총 대비 0.3% 이상(`FLOW_BOX_PCT`)은 화면에서 빨간 테두리.
+- 일자 파일은 한 번 만들면 다시 계산하지 않는다 — 기준을 바꾸면 이후 일자만 바뀐다. 지난 일자까지 다시
+  만들려면 `surge/flow.py`의 `VERSION`을 올린다(다음 실행이 30일 전부를 다시 만든다. KRX 시세 60번 요청).
 
 ---
 
@@ -105,7 +108,8 @@ POST https://api.github.com/repos/shinkiyeol9814-droid/kosdaq-surge/dispatches
 커밋은 기본 `GITHUB_TOKEN`. Actions Secrets엔 KRX 계정(`KRX_ID`/`KRX_PW`)만 있고 'Fund flow' 단계에만 넘긴다.
 
 투신 수급(`flows.py`)은 워크플로우가 돌 때마다 뒤따라 돈다. 기준일은 18:00 이후면 오늘, 그 전이면 직전
-개장일이고, 이미 있으면 로그인도 안 하고 끝난다. 그날 확정치는 GitHub `schedule`(평일 18:35 KST)이 받고,
+개장일이고, 이미 있으면 로그인도 안 하고 끝난다. KRX는 과거도 주므로 최근 30일 중 빠진 일자는 언제든
+알아서 채운다(거래대금 쪽과 달리 백필이 따로 없다). 그날 확정치는 GitHub `schedule`(평일 18:35 KST)이 받고,
 그게 밀리거나 빠지면 다음 날 장중 호출이 메운다. 실패해도(`continue-on-error`) 스냅샷 커밋은 나간다.
 
 `auto`는 지금 시각으로 슬롯을 고른다(`run.AUTO_WINDOW`):
@@ -175,7 +179,7 @@ POST https://api.github.com/repos/shinkiyeol9814-droid/kosdaq-surge/dispatches
 
 ## 화면 (`docs/`)
 
-- 상태는 URL 해시 `#YYYY-MM-DD/slot`, 투신 탭은 `#flow/t`(오늘 많이 산)·`#flow/k`(연속) —
+- 상태는 URL 해시 `#YYYY-MM-DD/slot`, 투신 탭은 `#flow/{t|k}/YYYY-MM-DD`(t 오늘 많이 산, k 연속. 일자 생략 = 최신) —
   링크 공유·뒤로 가기 가능(`hashchange` 처리).
 - `index.json`은 매번 `?t=now`로, 일자 파일은 `?v=updated`로 받는다(Pages 캐시 10분 회피).
 - 다크 기본 + `prefers-color-scheme: light` 대응. 색은 `:root` 토큰으로만.

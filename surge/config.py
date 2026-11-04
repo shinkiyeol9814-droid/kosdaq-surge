@@ -31,4 +31,5 @@ FLOW_DAYS = 10                   # 매수일·연속일을 세는 거래일 수
 FLOW_STREAK = 3                  # '연속 순매수' — 연속 이 일수 이상 …
 FLOW_BUY_DAYS = 6                # … 또는 FLOW_DAYS 중 이 일수 이상 순매수(누적도 순매수일 때)
 FLOW_FINAL_HHMM = "1800"         # 이 시각 뒤에야 그날 수급을 확정치로 받는다
-FLOW_KEEP_DAYS = 20              # data/flow 보관 거래일 수
+FLOW_SHOW_DAYS = 30              # 투신 탭 일자 버튼 수(docs/data/flow 보관 거래일)
+FLOW_KEEP_DAYS = 45              # data/flow 원자료 보관 거래일 수(30일 + 그 앞 10일 + 여유)

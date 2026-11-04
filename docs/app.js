@@ -1,5 +1,5 @@
 // 거래대금 급증 스크리너 — data/index.json과 data/days/{일자}.json을 읽어 그린다.
-// 일자 파일 구조는 surge/screen.py 머리말 참고. 투신 수급 탭은 data/flow.json(surge/flow.py 머리말).
+// 일자 파일 구조는 surge/screen.py 머리말 참고. 투신 수급 탭은 data/flow/index.json과 data/flow/{일자}.json(surge/flow.py 머리말).
 (() => {
   const SLOTS = ["1005", "1205", "1405", "close"];
   const LABEL = { all: "종합", "1005": "10:05", "1205": "12:05", "1405": "14:05", close: "종가" };
@@ -7,7 +7,7 @@
   const $ = (id) => document.getElementById(id);
 
   const state = { view: "surge", idx: null, docs: {}, day: null, slot: "all", mkt: "", sort: null,
-    flow: null, ftab: "t" };
+    fidx: null, fdocs: {}, fday: null, flow: null, ftab: "t" };
 
   const fmt = (v, d = 0) => (v == null || isNaN(v) ? "–" :
     Number(v).toLocaleString("ko-KR", { minimumFractionDigits: d, maximumFractionDigits: d }));
@@ -217,6 +217,17 @@
     { k: "cap", t: "시총(억)", sort: true, r: true },
   ];
 
+  function renderFlowDays() {
+    $("fdays").innerHTML = state.fidx.days.map((x) => {
+      const wd = WD[new Date(x.d + "T12:00:00Z").getUTCDay()];
+      return `<button data-d="${x.d}" class="${x.d === state.fday ? "on" : ""}">
+        <span class="d">${x.d.slice(5)} <span class="w">${wd}</span></span>
+        <span class="n">${x[state.ftab] ?? 0}</span></button>`;
+    }).join("");
+    const on = $("fdays").querySelector(".on");
+    if (on) on.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }
+
   function renderFlowTabs() {
     const st = Object.values(state.flow.stocks);
     $("ftabs").innerHTML = Object.entries(FTABS).map(([k, t]) =>
@@ -266,22 +277,32 @@
   }
 
   async function showFlow() {
-    if (!state.flow) {
+    if (!state.fidx) {
       $("tbody").innerHTML = "";
       $("summary").textContent = "불러오는 중…";
       try {
-        state.flow = await getJSON(`data/flow.json?t=${Date.now()}`);
-      } catch (e) {
-        $("thead").innerHTML = ""; $("summary").textContent = ""; $("note").hidden = true;
-        $("empty").hidden = false; $("empty").textContent = "투신 수급 데이터가 아직 없다.";
-        return;
-      }
-      renderFlowRules(state.flow.criteria);
-      if (state.view === "flow") $("updated").textContent = `갱신 ${state.flow.updated}`;
+        state.fidx = await getJSON(`data/flow/index.json?t=${Date.now()}`);
+      } catch (e) { state.fidx = { days: [] }; }
+      if (state.view === "flow" && state.fidx.updated) $("updated").textContent = `갱신 ${state.fidx.updated}`;
     }
+    if (!state.fidx.days.length) {
+      $("thead").innerHTML = ""; $("tbody").innerHTML = ""; $("summary").textContent = ""; $("note").hidden = true;
+      $("empty").hidden = false; $("empty").textContent = "투신 수급 데이터가 아직 없다.";
+      return;
+    }
+    if (!state.fidx.days.some((x) => x.d === state.fday)) state.fday = state.fidx.days[0].d;
+    renderFlowDays();
+    let doc = state.fdocs[state.fday];
+    if (!doc) {
+      $("tbody").innerHTML = "";
+      $("summary").textContent = "불러오는 중…";
+      doc = state.fdocs[state.fday] = await getJSON(`data/flow/${state.fday}.json?v=${encodeURIComponent(state.fidx.updated)}`);
+    }
+    state.flow = doc;
+    renderFlowRules(doc.criteria);
     renderFlowTabs();
     renderFlow();
-    history.replaceState(null, "", `#flow/${state.ftab}`);
+    history.replaceState(null, "", `#flow/${state.ftab}/${state.fday}`);
   }
 
   function render() {
@@ -293,7 +314,7 @@
     $("views").querySelectorAll("button").forEach((x) => x.classList.toggle("on", x.dataset.v === v));
     $("v-surge").hidden = v !== "surge";
     $("v-flow").hidden = v !== "flow";
-    const src = v === "flow" ? state.flow : state.idx;
+    const src = v === "flow" ? state.fidx : state.idx;
     $("updated").textContent = src ? `갱신 ${src.updated}` : "";
     if (v === "flow") return showFlow().catch((e) => { $("summary").textContent = `불러오기 실패: ${e.message}`; });
     if (!state.idx || !state.day) {
@@ -328,6 +349,10 @@
       const b = e.target.closest("button"); if (!b) return;
       state.ftab = b.dataset.f; state.sort = null; showFlow();
     });
+    $("fdays").addEventListener("click", (e) => {
+      const b = e.target.closest("button"); if (!b) return;
+      state.fday = b.dataset.d; state.sort = null; showFlow();
+    });
     $("days").addEventListener("click", (e) => {
       const b = e.target.closest("button"); if (!b) return;
       state.day = b.dataset.d; state.sort = null; show();
@@ -354,24 +379,24 @@
 
   async function init() {
     bind();
-    const [d, s] = decodeURIComponent(location.hash.slice(1)).split("/");
+    const [d, s, x] = decodeURIComponent(location.hash.slice(1)).split("/");
     try {
       state.idx = await getJSON(`data/index.json?t=${Date.now()}`);
       renderRules(state.idx.criteria);
       state.day = state.idx.days.some((x) => x.d === d) ? d : state.idx.days[0]?.d;
       state.slot = LABEL[s] ? s : "all";
     } catch (e) { /* 급증 데이터가 없어도 투신 탭은 볼 수 있게 */ }
-    if (d === "flow") state.ftab = FTABS[s] ? s : "t";
+    if (d === "flow") { state.ftab = FTABS[s] ? s : "t"; state.fday = x || null; }
     setView(d === "flow" ? "flow" : "surge");
   }
 
-  // 주소의 #일자/시각(또는 #flow/목록)만 바꿔 들어와도(뒤로 가기·링크) 그 화면으로
+  // 주소의 #일자/시각(또는 #flow/목록/일자)만 바꿔 들어와도(뒤로 가기·링크) 그 화면으로
   window.addEventListener("hashchange", () => {
-    const [d, s] = decodeURIComponent(location.hash.slice(1)).split("/");
+    const [d, s, x] = decodeURIComponent(location.hash.slice(1)).split("/");
     if (d === "flow") {
-      const t = FTABS[s] ? s : "t";
-      if (state.view === "flow" && t === state.ftab) return;
-      state.ftab = t;
+      const t = FTABS[s] ? s : "t", day = x || state.fday;
+      if (state.view === "flow" && t === state.ftab && day === state.fday) return;
+      state.ftab = t; state.fday = day;
       return setView("flow");
     }
     if (!state.idx) return;
