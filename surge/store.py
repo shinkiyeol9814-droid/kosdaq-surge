@@ -8,8 +8,8 @@
   docs/data/flow/{YYYY-MM-DD}.json     그날 투신 두 목록 — 투신 탭이 읽는다
   docs/data/flow/index.json            투신 일자 목록과 목록별 건수
   data/inst/{YYYY-MM-DD}.json          그날 투신·사모·연기금 순매수 — 연속일 계산용(화면엔 안 나감)
-  docs/data/inst/{YYYY-MM-DD}.json     그날 기관 수급 표(코스피·코스닥) — 기관 탭이 읽는다
-  docs/data/inst/index.json            기관 일자 목록
+  docs/data/inst/{YYYY-MM-DD}.json     그날 종합 수급 표(코스피·코스닥) — 종합 수급 탭이 읽는다
+  docs/data/inst/index.json            종합 수급 일자 목록
 
 스냅샷엔 중앙값 계산에 필요한 누적거래대금만 백만원 단위 정수로 남긴다 — 하루 4번 × 약 4천 종목이
 커밋되므로 이름·가격까지 넣으면 리포지토리가 금방 불어난다.

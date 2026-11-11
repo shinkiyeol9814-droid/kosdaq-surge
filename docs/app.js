@@ -1,6 +1,6 @@
 // 거래대금 급증 스크리너 — data/index.json과 data/days/{일자}.json을 읽어 그린다.
 // 일자 파일 구조는 surge/screen.py 머리말 참고. 투신 수급 탭은 data/flow/index.json과 data/flow/{일자}.json(surge/flow.py 머리말),
-// 기관 수급 탭은 data/inst/index.json과 data/inst/{일자}.json(surge/inst.py 머리말).
+// 종합 수급 탭은 data/inst/index.json과 data/inst/{일자}.json(surge/inst.py 머리말).
 (() => {
   const SLOTS = ["1005", "1205", "1405", "close"];
   const LABEL = { all: "종합", "1005": "10:05", "1205": "12:05", "1405": "14:05", close: "종가" };
@@ -9,7 +9,7 @@
 
   const state = { view: "surge", idx: null, docs: {}, day: null, slot: "all", mkt: "", sort: null,
     fidx: null, fdocs: {}, fday: null, flow: null, ftab: "t",
-    iidx: null, idocs: {}, iday: null, inst: null, itab: "pow", imkt: "Q" };
+    iidx: null, idocs: {}, iday: null, inst: null, imkt: "Q" };
 
   const fmt = (v, d = 0) => (v == null || isNaN(v) ? "–" :
     Number(v).toLocaleString("ko-KR", { minimumFractionDigits: d, maximumFractionDigits: d }));
@@ -322,23 +322,15 @@
     history.replaceState(null, "", `#flow/${state.ftab}/${state.fday}`);
   }
 
-  // ── 기관 수급 ─────────────────────────────────────────────────────────
-  const ITABS = { pow: "매수강도", s: "3기관", t: "투신", p: "사모", y: "연기금" };
+  // ── 종합 수급 ─────────────────────────────────────────────────────────
+  // 시장마다 표 다섯 장(매수강도 4열 + 3기관·투신·사모·연기금 순매수 Top30)을 한 화면에 차례로 그린다.
+  // 화면 테마와 상관없이 흰 바탕 표(.sheet) — 요청받은 이미지 표와 같은 모양으로.
+  const KNAME = { s: "3기관", t: "투신", p: "사모", y: "연기금" };
+  const KTITLE = { s: "3기관(투신+사모+연기금) 합산", t: "투신", p: "사모", y: "연기금" };
+  const POWTITLE = { s: "3기관 합", t: "투신", p: "사모펀드", y: "연기금" };
   const MKT = { K: "코스피", Q: "코스닥" };
-  const signed = (v, d = 1) => `${v > 0 ? "+" : ""}${fmt(v, d)}`;
-
-  function renderInstRules(c) {
-    const eok = (w) => fmt(w / 1e8);
-    $("inst-rules").innerHTML = `
-      <p>${universe(c.max_mcap)}만 본다. 3기관 = 투신 + 사모 + 연기금. KRX 투자자별 순매수의 장 마감 뒤 확정치다.</p>
-      <p><b>매수강도</b> = 그날 순매수 ÷ 시가총액(%). 순매수 <b>${eok(c.pow_min_net)}억</b>·시총 <b>${eok(c.pow_min_mcap)}억</b>
-        이상에서 상위 ${c.top}. <span class="hl-mint">민트</span>는 투신·사모·연기금 상위 ${c.top} 중 두 곳 이상에 든 종목,
-        굵게는 <b>${c.hl_pct}%</b> 이상.</p>
-      <p><b>3기관·투신·사모·연기금</b> — 그날 순매수 금액 큰 순 ${c.top}. 괄호는 시총 대비 %.
-        연속 순매수는 기준일까지 며칠 연달아 순매수였는지(최근 ${c.streak_days}거래일)와 그 기간 누적.</p>
-      <p><span class="hl-yel">노랑</span> = 순매수가 시총의 ${c.hl_pct}% 이상(순매수 칸)${c.cap_hl.Q ? ` · 코스닥 시총 ${fmt(c.cap_hl.Q / 1e12)}조 미만(시총 칸)` : ""},
-        <span class="hl-pur">보라</span> = 투신 2일 이상 연속 순매수.</p>`;
-  }
+  const sg = (v, d = 1) => `${v >= 0 ? "+" : ""}${fmt(v, d)}`;
+  const sc = (v) => (v > 0 ? "s-up" : v < 0 ? "s-down" : "");
 
   function renderInstDays() {
     $("idays").innerHTML = state.iidx.days.map((d) => {
@@ -348,67 +340,73 @@
     }).join("");
     const on = $("idays").querySelector(".on");
     if (on) on.scrollIntoView({ block: "nearest", inline: "nearest" });
+    $("itabs").innerHTML = Object.entries(MKT).reverse().map(([k, t]) =>
+      `<button data-m="${k}" class="${k === state.imkt ? "on" : ""}">${t}</button>`).join("") +
+      ["pow", "s", "t", "p", "y"].map((k) => `<a class="jump" href="#" data-j="${k}">${k === "pow" ? "매수강도" : KNAME[k]}</a>`).join("");
   }
 
-  function renderInstTabs() {
-    $("itabs").innerHTML = Object.entries(ITABS).map(([k, t]) =>
-      `<button data-i="${k}" class="${k === state.itab ? "on" : ""}">${t}</button>`).join("");
-    $("imkt").querySelectorAll("button").forEach((x) => x.classList.toggle("on", x.dataset.m === state.imkt));
+  const nm = (code, r) => `<a href="https://finance.naver.com/item/main.naver?code=${code}" target="_blank" rel="noopener">${esc(r.n)}</a>`;
+
+  function powSheet(f, m) {
+    const c = f.criteria, hot = {};
+    for (const k of ["t", "p", "y"]) for (const code of m.pow[k]) hot[code] = (hot[code] || 0) + 1;
+    const cols = ["s", "t", "p", "y"].map((k) => `<div>
+        <h3>${POWTITLE[k]} 상위 ${c.top}</h3>
+        <table><thead><tr><th>순위</th><th>종목명</th><th>매수강도</th><th>등락률</th></tr></thead><tbody>
+        ${m.pow[k].map((code, i) => {
+          const r = m.stocks[code], mint = hot[code] >= 2 ? "mint" : "";
+          return `<tr><td>${i + 1}</td><td class="${mint}">${nm(code, r)}</td>
+            <td class="${mint} ${r[k][1] >= c.hl_pct ? "b" : ""}">${fmt(r[k][1], 2)}</td>
+            <td class="${sc(r.c)}">${sg(r.c)}%</td></tr>`;
+        }).join("") || `<tr><td colspan="4">없음</td></tr>`}
+        </tbody></table></div>`).join("");
+    return `<section class="sheet" id="sh-pow"><h2>${MKT[state.imkt]} 매수강도 상위 ${c.top} — ${f.d}</h2>
+      <div class="pow4">${cols}</div>
+      <p class="foot">매수강도 = 그날 순매수 금액 ÷ 시가총액 × 100(%). 3기관 = 투신+사모+연기금.
+        순매수 ${fmt(c.pow_min_net / 1e8)}억·시총 ${fmt(c.pow_min_mcap / 1e8)}억 이상. 민트 = 투신·사모·연기금 Top${c.top} 중 2곳 이상 등장.
+        굵게 = ${c.hl_pct}% 이상. 자료: KRX</p></section>`;
   }
 
-  const nameCell = (code, r) => `<a class="nm" href="https://finance.naver.com/item/main.naver?code=${code}" target="_blank" rel="noopener">${esc(r.n)}</a>`;
-  const chgCell = (c) => `<td class="r ${cls(c)}">${signed(c)}%</td>`;
+  function topSheet(f, m, k) {
+    const c = f.criteria, capHl = (c.cap_hl[state.imkt] || 0) / 1e8, others = ["t", "p", "y"].filter((x) => x !== k);
+    const streak = (st, sum) => st >= 2 ? `${st}일(${sg(sum, 0)}억)` : `${st}일`;
+    const rows = m.top[k].map((code, i) => {
+      const r = m.stocks[code], [net, pct, st, sum] = r[k];
+      const pur = k === "t" && st >= 2;
+      const ost = others.map((o) => {
+        const [n, , s2, sm] = r[o], p2 = o === "t" && s2 >= 2;
+        return `<td class="${sc(n)} ${p2 ? "pur b" : ""}">${sg(n)}${p2 ? ` (${streak(s2, sm)})` : ""}</td>`;
+      }).join("");
+      return `<tr><td>${i + 1}</td><td class="nm">${nm(code, r)}</td>
+        <td class="${r.cap < capHl ? "yel b" : ""}">${fmt(r.cap)}억</td>
+        <td class="${sc(r.c)}">${sg(r.c)}%</td>
+        <td class="b s-up ${pct >= c.hl_pct ? "yel" : "tint"}">${sg(net)}억 (${sg(pct, 2)}%)</td>
+        <td class="${pur ? "pur" : ""} ${st >= 3 ? "b s-up" : st === 2 ? "b" : ""}">${streak(st, sum)}</td>${ost}</tr>`;
+    }).join("");
+    return `<section class="sheet" id="sh-${k}"><h2>${MKT[state.imkt]} ${KTITLE[k]} 순매수 Top${c.top} — ${f.d} (순매수 금액 순)</h2>
+      <div class="sheet-scroll"><table class="wide"><thead><tr><th>#</th><th>종목</th><th>시총</th><th>등락률</th>
+        <th class="key">${k === "s" ? "3기관 합산" : `${KNAME[k]} 순매수`}<br>(시총 대비)</th><th class="key">연속<br>순매수</th>
+        ${others.map((o) => `<th>${KNAME[o]}</th>`).join("")}</tr></thead>
+        <tbody>${rows || `<tr><td colspan="${6 + others.length}">순매수 종목이 없다.</td></tr>`}</tbody></table></div>
+      <p class="foot">정렬: 순매수 금액 큰 순, 괄호는 시가총액 대비 %. 연속 순매수: 오늘까지 며칠 연속 순매수(${KNAME[k]} 기준,
+        최근 ${Math.min(f.win, c.streak_days)}거래일), 2일 이상이면 괄호에 그 기간 누적 순매수(억원).<br>
+        노랑 = 순매수가 시총의 ${c.hl_pct}% 이상(순매수 칸)·시총 ${fmt(capHl / 1e4)}조 미만(시총 칸), 보라 = 투신 2일 이상 연속 순매수.
+        종가·등락률·시총은 KRX 정규장 종가 기준. ${others.map((o) => KNAME[o]).join("·")} 열은 억원. 자료: KRX</p></section>`;
+  }
 
   function renderInst() {
-    const f = state.inst, m = f.mk[state.imkt], c = f.criteria, wd = WD[new Date(f.d + "T12:00:00Z").getUTCDay()];
-    const pow = state.itab === "pow";
-    $("igrid").hidden = !pow; $("twrap").hidden = pow;
-    $("summary").innerHTML = `${MKT[state.imkt]} ${ITABS[state.itab]} 상위 <b>${c.top}</b> · 기준일 ${f.d.slice(5)} (${wd}) 장 마감 뒤 확정치`;
+    const f = state.inst, m = f.mk[state.imkt], c = f.criteria;
+    const wd = WD[new Date(f.d + "T12:00:00Z").getUTCDay()];
+    $("igrid").hidden = false; $("twrap").hidden = true; $("empty").hidden = true;
+    $("summary").innerHTML = `${MKT[state.imkt]} 종합 수급 · 기준일 ${f.d.slice(5)} (${wd}) 장 마감 뒤 확정치 · ${universe(c.max_mcap)}`;
     $("note").hidden = f.win >= c.streak_days;
     $("note").textContent = `연속 순매수는 최근 ${f.win}거래일 안에서 센 값이다(원자료가 아직 ${c.streak_days}일치 모이지 않았다).`;
-    $("empty").hidden = true;
-    if (pow) {
-      const hot = {};
-      for (const k of ["t", "p", "y"]) for (const code of m.pow[k]) hot[code] = (hot[code] || 0) + 1;
-      $("igrid").innerHTML = ["s", "t", "p", "y"].map((k) => `<section class="icard">
-          <h3>${k === "s" ? "3기관 합" : ITABS[k]} 상위 ${c.top}</h3>
-          <table><thead><tr><th>#</th><th>종목</th><th class="r">매수강도</th><th class="r">등락률</th></tr></thead><tbody>
-          ${m.pow[k].map((code, i) => {
-            const r = m.stocks[code], mint = hot[code] >= 2 ? "hl-mint" : "";
-            return `<tr><td class="idx">${i + 1}</td><td class="${mint}">${nameCell(code, r)}</td>
-              <td class="r ${mint} ${r[k][1] >= c.hl_pct ? "strong" : ""}">${fmt(r[k][1], 2)}</td>${chgCell(r.c)}</tr>`;
-          }).join("") || `<tr><td colspan="4" class="sub">없음</td></tr>`}
-          </tbody></table></section>`).join("");
-      return;
-    }
-    const k = state.itab, others = ["t", "p", "y"].filter((x) => x !== k);
-    $("thead").innerHTML = [["#", ""], ["종목", ""], ["시총", "r"], ["등락률", "r"],
-      [`${k === "s" ? "3기관 합산" : ITABS[k]} 순매수 (시총 대비)`, "r key"], ["연속 순매수", "r key"],
-      ...others.map((o) => [ITABS[o], "r"])].map(([t, x], i) => `<th class="${x}" ${i === 1 ? 'data-k="name"' : ""}>${t}</th>`).join("");
-    const capHl = c.cap_hl[state.imkt];
-    const streak = (st, sum) => st >= 2 ? `${st}일(${signed(sum, 0)}억)` : `${st}일`;
-    $("tbody").innerHTML = m.top[k].map((code, i) => {
-      const r = m.stocks[code], [net, pct, st, sum] = r[k];
-      const ostr = others.map((o) => {
-        const [n, , s2, sm] = r[o], pur = o === "t" && s2 >= 2;
-        return `<td class="r ${cls(n)} ${pur ? "hl-pur strong" : ""}">${signed(n)}${pur ? ` (${streak(s2, sm)})` : ""}</td>`;
-      }).join("");
-      return `<tr>
-        <td class="idx">${i + 1}</td>
-        <td class="name">${nameCell(code, r)}</td>
-        <td class="r ${capHl && r.cap < capHl / 1e8 ? "hl-yel strong" : ""}">${fmt(r.cap)}억</td>
-        ${chgCell(r.c)}
-        <td class="r strong ${pct >= c.hl_pct ? "hl-yel" : "up tint"}">${signed(net)}억 (${signed(pct, 2)}%)</td>
-        <td class="r ${k === "t" && st >= 2 ? "hl-pur" : ""} ${st >= 3 ? "up strong" : st === 2 ? "strong" : ""}">${streak(st, sum)}</td>
-        ${ostr}</tr>`;
-    }).join("");
-    $("empty").hidden = m.top[k].length > 0;
-    $("empty").textContent = "순매수 종목이 없다.";
+    $("igrid").innerHTML = powSheet(f, m) + ["s", "t", "p", "y"].map((k) => topSheet(f, m, k)).join("");
   }
 
   async function showInst() {
+    $("igrid").hidden = true; $("twrap").hidden = false; $("thead").innerHTML = ""; $("tbody").innerHTML = "";
     if (!state.iidx) {
-      $("tbody").innerHTML = "";
       $("summary").textContent = "불러오는 중…";
       try {
         state.iidx = await getJSON(`data/inst/index.json?t=${Date.now()}`);
@@ -416,9 +414,8 @@
       if (state.view === "inst" && state.iidx.updated) $("updated").textContent = `갱신 ${state.iidx.updated}`;
     }
     if (!state.iidx.days.length) {
-      $("igrid").hidden = true; $("twrap").hidden = false;
-      $("thead").innerHTML = ""; $("tbody").innerHTML = ""; $("summary").textContent = ""; $("note").hidden = true;
-      $("empty").hidden = false; $("empty").textContent = "기관 수급 데이터를 모으는 중이다 — 처음엔 하루쯤 걸린다.";
+      $("summary").textContent = ""; $("note").hidden = true;
+      $("empty").hidden = false; $("empty").textContent = "종합 수급 데이터를 모으는 중이다 — 처음엔 하루쯤 걸린다.";
       return;
     }
     if (!state.iidx.days.includes(state.iday)) state.iday = state.iidx.days[0];
@@ -429,10 +426,8 @@
       doc = state.idocs[state.iday] = await getJSON(`data/inst/${state.iday}.json?v=${encodeURIComponent(state.iidx.updated)}`);
     }
     state.inst = doc;
-    renderInstRules(doc.criteria);
-    renderInstTabs();
     renderInst();
-    history.replaceState(null, "", `#inst/${state.itab}/${state.imkt}/${state.iday}`);
+    history.replaceState(null, "", `#inst/${state.imkt}/${state.iday}`);
   }
 
   function render() {
@@ -447,7 +442,7 @@
     $("v-surge").hidden = v !== "surge";
     $("v-flow").hidden = v !== "flow";
     $("v-inst").hidden = v !== "inst";
-    $("mkt").hidden = v === "inst"; $("imkt").hidden = v !== "inst";
+    $("mkt").hidden = v === "inst";
     if (v !== "inst") { $("igrid").hidden = true; $("twrap").hidden = false; }
     const src = { flow: state.fidx, inst: state.iidx }[v] ?? state.idx;
     $("updated").textContent = src ? `갱신 ${src.updated}` : "";
@@ -490,16 +485,14 @@
       state.fday = b.dataset.d; state.sort = null; showFlow();
     });
     $("itabs").addEventListener("click", (e) => {
+      const a = e.target.closest("a.jump");
+      if (a) { e.preventDefault(); $(`sh-${a.dataset.j}`)?.scrollIntoView({ behavior: "smooth" }); return; }
       const b = e.target.closest("button"); if (!b) return;
-      state.itab = b.dataset.i; showInst();
+      state.imkt = b.dataset.m; showInst();
     });
     $("idays").addEventListener("click", (e) => {
       const b = e.target.closest("button"); if (!b) return;
       state.iday = b.dataset.d; showInst();
-    });
-    $("imkt").addEventListener("click", (e) => {
-      const b = e.target.closest("button"); if (!b) return;
-      state.imkt = b.dataset.m; showInst();
     });
     $("days").addEventListener("click", (e) => {
       const b = e.target.closest("button"); if (!b) return;
@@ -535,17 +528,17 @@
       state.slot = LABEL[s] ? s : "all";
     } catch (e) { /* 급증 데이터가 없어도 투신 탭은 볼 수 있게 */ }
     if (d === "flow") { state.ftab = FTABS[s] ? s : "t"; state.fday = x || null; }
-    if (d === "inst") { state.itab = ITABS[s] ? s : "pow"; state.imkt = MKT[x] ? x : "Q"; state.iday = y || null; }
+    if (d === "inst") { state.imkt = MKT[s] ? s : "Q"; state.iday = x || null; }
     setView(d === "flow" || d === "inst" ? d : "surge");
   }
 
-  // 주소의 #일자/시각(또는 #flow/목록/일자, #inst/표/시장/일자)만 바꿔 들어와도(뒤로 가기·링크) 그 화면으로
+  // 주소의 #일자/시각(또는 #flow/목록/일자, #inst/시장/일자)만 바꿔 들어와도(뒤로 가기·링크) 그 화면으로
   window.addEventListener("hashchange", () => {
     const [d, s, x, y] = decodeURIComponent(location.hash.slice(1)).split("/");
     if (d === "inst") {
-      const t = ITABS[s] ? s : "pow", mk = MKT[x] ? x : "Q", day = y || state.iday;
-      if (state.view === "inst" && t === state.itab && mk === state.imkt && day === state.iday) return;
-      Object.assign(state, { itab: t, imkt: mk, iday: day });
+      const mk = MKT[s] ? s : "Q", day = x || state.iday;
+      if (state.view === "inst" && mk === state.imkt && day === state.iday) return;
+      Object.assign(state, { imkt: mk, iday: day });
       return setView("inst");
     }
     if (d === "flow") {

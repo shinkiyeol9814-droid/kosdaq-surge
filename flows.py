@@ -1,6 +1,6 @@
 """
 투신·기관 수급 수집 — KRX 확정치를 받아 원자료(data/flow, data/inst)를 쌓고 일자별 결과
-(docs/data/flow/{일자}.json 투신 탭, docs/data/inst/{일자}.json 기관 탭)를 만든다.
+(docs/data/flow/{일자}.json 투신 탭, docs/data/inst/{일자}.json 종합 수급 탭)를 만든다.
 
   python flows.py
 
@@ -12,7 +12,7 @@ KRX는 과거 일자도 주므로 빠진 날은 언제든 채울 수 있다. 화
 FLOW_DAYS일(연속일 계산용) 원자료 중 빠진 날을 받고, 결과가 없는 일자를 만든다. 결과 구조
 (flow.VERSION)가 바뀌면 모든 일자를 다시 만든다.
 
-기관 탭은 투신·사모·연기금 세 가지를 따로 받아(data/inst) 최근 INST_KEEP_DAYS일을 둔다. 처음 채울 땐
+종합 수급 탭은 투신·사모·연기금 세 가지를 따로 받아(data/inst) 최근 INST_KEEP_DAYS일을 둔다. 처음 채울 땐
 한 번에 INST_FETCH_MAX일씩만 받고, 원자료가 다 모인 뒤에 결과를 만든다(연속일이 잘린 채 굳지 않게).
 """
 import os

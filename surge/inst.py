@@ -1,5 +1,5 @@
 """
-기관 수급 — 투신·사모·연기금과 그 합(3기관)의 순매수 표를 시장(코스피·코스닥)별로 만든다.
+종합 수급 — 투신·사모·연기금과 그 합(3기관)의 순매수 표를 시장(코스피·코스닥)별로 만든다.
 대상은 투신 탭과 같다(코스닥 전부, 코스피 3조 미만 — config.FLOW_MAX_MCAP).
 
   순매수 상위   종류마다 그날 순매수 금액 큰 순 INST_TOP 종목
@@ -19,7 +19,7 @@ from surge import config as C
 from surge import store
 from surge.flow import in_universe
 
-VERSION = 1
+VERSION = 2                      # 2: 코스피도 시총 1조 미만 노란 칸
 KINDS = [k for k, _ in C.INST_KINDS]
 
 
