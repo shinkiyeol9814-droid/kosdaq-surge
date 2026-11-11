@@ -22,7 +22,7 @@ https://kosdaq-surge.yunhee2368.workers.dev/ 와 같은 기능을 목표로 2026
 | GitHub Actions | 3.12 (워크플로우에 고정) |
 | 로컬 | 3.13 |
 
-의존성은 `requests`, `holidays`, `pykrx`(투신 수급 전용 — pandas 등을 끌고 온다)다.
+의존성은 `requests`, `holidays`, `pykrx`(투신 수급 전용 — pandas 등을 끌고 온다), `telethon`(텔레그램 알림 전용)이다.
 프런트엔드는 빌드 도구 없는 순수 HTML/CSS/JS.
 
 ---
@@ -55,6 +55,7 @@ https://kosdaq-surge.yunhee2368.workers.dev/ 와 같은 기능을 목표로 2026
 | `surge/flow.py` | 투신 두 목록(오늘 많이 산 / 연속 순매수) 계산, 대상 판정 `in_universe` |
 | `surge/inst.py` | 종합 수급 탭 표(시장별 순매수 상위·매수강도 상위, 60일 연속 순매수) 계산 |
 | `docs/index.html · app.js · style.css` | 정적 화면 |
+| `notify.py --slot … [--dry-run]` | 방금 수집한 시각의 포착(★1 이상, `ALERT_MIN_GRADE`)을 텔레그램으로 — Telethon, 내 계정이 보낸다 |
 | `.github/workflows/snapshot.yml` | repository_dispatch(`snapshot`) / 평일 18:35 schedule(투신만) / 수동 실행 |
 
 ### 데이터 레이아웃
@@ -123,7 +124,11 @@ POST https://api.github.com/repos/shinkiyeol9814-droid/kosdaq-surge/dispatches
 {"event_type": "snapshot", "client_payload": {"slot": "auto"}}
 ```
 토큰은 fine-grained(이 리포만, Contents: Read and write)이고 **cron-job.org에만** 있다.
-커밋은 기본 `GITHUB_TOKEN`. Actions Secrets엔 KRX 계정(`KRX_ID`/`KRX_PW`)만 있고 'Fund flow' 단계에만 넘긴다.
+커밋은 기본 `GITHUB_TOKEN`. Actions Secrets엔 KRX 계정(`KRX_ID`/`KRX_PW`, 'Fund flow' 단계에만)과
+텔레그램(`TELEGRAM_API_ID`/`TELEGRAM_API_HASH`/`TELEGRAM_SESSION`/`SURGE_ALERT_CHAT`, 'Telegram' 단계에만)이 있다.
+'Telegram' 단계는 Commit 뒤, `run.py`가 실제로 수집했을 때만(`GITHUB_OUTPUT`의 `slot`) 돈다. 시크릿이 없으면 notice만 남긴다.
+세션은 stockapp2와 **따로** 만든다 — 같은 StringSession을 두 리포가 동시에 쓰면 `AUTH_KEY_DUPLICATED`로 세션이 죽을 수 있다.
+보낼 곳(비공개 초대 링크 등)은 공유 비밀이라 코드에 넣지 말 것.
 
 투신 수급(`flows.py`)은 워크플로우가 돌 때마다 뒤따라 돈다. 기준일은 18:00 이후면 오늘, 그 전이면 직전
 개장일이고, 이미 있으면 로그인도 안 하고 끝난다. KRX는 과거도 주므로 최근 30일 중 빠진 일자는 언제든

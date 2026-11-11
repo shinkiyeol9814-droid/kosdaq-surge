@@ -1,3 +1,4 @@
 requests
 holidays
 pykrx>=1.2.8
+telethon

@@ -72,6 +72,9 @@ def main():
         mins = (now.hour * 60 + now.minute) - (int(hhmm[:2]) * 60 + int(hhmm[2:]))
         late = f" · {mins}분 늦음" if mins >= 10 else ""
     print(f"::notice title={C.SLOT_LABEL[slot]}::{len(rows)}종목 스냅샷 · 포착 {len(hits)}{late}")
+    if os.environ.get("GITHUB_OUTPUT"):   # 워크플로우의 텔레그램 단계가 이 슬롯을 보낸다
+        with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as f:
+            f.write(f"slot={slot}\nday={day}\n")
     return 0
 
 

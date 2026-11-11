@@ -45,3 +45,6 @@ INST_POWER_MIN_MCAP = 500e8      # … 시총 500억 이상
 INST_SHOW_DAYS = 30              # 종합 수급 탭 일자 버튼 수(docs/data/inst 보관 거래일)
 INST_KEEP_DAYS = 62              # data/inst 원자료 보관 거래일 수(연속일 60일 + 여유)
 INST_FETCH_MAX = 20              # 한 번 실행에서 받는 원자료 일수 상한 — 처음 채울 때 KRX에 몰아서 요청하지 않게
+
+# ── 텔레그램 알림 (notify.py) ────────────────────────────────────────────────
+ALERT_MIN_GRADE = 1              # 이 등급(★) 이상만 한 줄씩 보낸다. 나머지는 건수와 사이트 링크로

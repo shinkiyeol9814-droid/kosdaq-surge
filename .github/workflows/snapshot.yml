@@ -46,6 +46,7 @@ jobs:
       - run: pip install -r requirements.txt
 
       - name: Collect
+        id: collect
         if: github.event_name != 'schedule'
         env:
           SLOT: ${{ github.event.client_payload.slot || inputs.slot }}
@@ -80,3 +81,16 @@ jobs:
             sleep $((i * 5))
           done
           exit 1
+
+      # 커밋이 나간 뒤에 보낸다(메시지의 사이트 링크가 바로 열리게). 실제로 수집한 실행만 —
+      # auto가 건너뛴 시각·휴장일·백필·18:35 schedule은 slot 출력이 없다.
+      # 시크릿이 없으면 notice만 남기고 끝나고, 실패해도 실행 전체를 실패로 만들지 않는다.
+      - name: Telegram
+        if: steps.collect.outputs.slot != ''
+        continue-on-error: true
+        env:
+          TELEGRAM_API_ID: ${{ secrets.TELEGRAM_API_ID }}
+          TELEGRAM_API_HASH: ${{ secrets.TELEGRAM_API_HASH }}
+          TELEGRAM_SESSION: ${{ secrets.TELEGRAM_SESSION }}
+          SURGE_ALERT_CHAT: ${{ secrets.SURGE_ALERT_CHAT }}
+        run: python notify.py --slot "${{ steps.collect.outputs.slot }}" --day "${{ steps.collect.outputs.day }}"
