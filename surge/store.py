@@ -7,6 +7,9 @@
   data/flow/{YYYY-MM-DD}.json          그날 투신 순매수 — 연속일 계산용(화면엔 안 나감)
   docs/data/flow/{YYYY-MM-DD}.json     그날 투신 두 목록 — 투신 탭이 읽는다
   docs/data/flow/index.json            투신 일자 목록과 목록별 건수
+  data/inst/{YYYY-MM-DD}.json          그날 투신·사모·연기금 순매수 — 연속일 계산용(화면엔 안 나감)
+  docs/data/inst/{YYYY-MM-DD}.json     그날 기관 수급 표(코스피·코스닥) — 기관 탭이 읽는다
+  docs/data/inst/index.json            기관 일자 목록
 
 스냅샷엔 중앙값 계산에 필요한 누적거래대금만 백만원 단위 정수로 남긴다 — 하루 4번 × 약 4천 종목이
 커밋되므로 이름·가격까지 넣으면 리포지토리가 금방 불어난다.
@@ -23,6 +26,9 @@ INDEX = os.path.join(ROOT, "docs", "data", "index.json")
 FLOW_DIR = os.path.join(ROOT, "data", "flow")
 FLOW_OUT_DIR = os.path.join(ROOT, "docs", "data", "flow")
 FLOW_INDEX = os.path.join(FLOW_OUT_DIR, "index.json")
+INST_DIR = os.path.join(ROOT, "data", "inst")
+INST_OUT_DIR = os.path.join(ROOT, "docs", "data", "inst")
+INST_INDEX = os.path.join(INST_OUT_DIR, "index.json")
 
 
 def now_kst():
@@ -127,3 +133,48 @@ def load_flow_result(day: str) -> dict:
 
 def save_flow_result(day: str, obj: dict):
     _write_json(os.path.join(FLOW_OUT_DIR, f"{day}.json"), obj)
+
+
+# ── 기관 수급 ──
+def _load(path):
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return None
+
+
+def _dated(folder) -> list:
+    if not os.path.isdir(folder):
+        return []
+    return sorted(f[:10] for f in os.listdir(folder) if f.endswith(".json") and f[:4].isdigit())
+
+
+def save_inst_day(day: str, values: dict):
+    """values {종류: {코드: 원}} — 백만원 정수로, 0은 뺀다. 전부 비면(휴장) {"x": "휴장"}."""
+    obj = {k: {c: round(v / 1e6) for c, v in vs.items() if round(v / 1e6)} for k, vs in values.items()}
+    _write_json(os.path.join(INST_DIR, f"{day}.json"), obj if any(obj.values()) else {"x": "휴장"})
+
+
+def load_inst_day(day: str):
+    return _load(os.path.join(INST_DIR, f"{day}.json"))
+
+
+def inst_days() -> list:
+    return _dated(INST_DIR)
+
+
+def load_inst_index() -> dict:
+    return _load(INST_INDEX) or {}
+
+
+def save_inst_index(obj: dict):
+    _write_json(INST_INDEX, obj)
+
+
+def inst_result_days() -> list:
+    return _dated(INST_OUT_DIR)
+
+
+def save_inst_result(day: str, obj: dict):
+    _write_json(os.path.join(INST_OUT_DIR, f"{day}.json"), obj)

@@ -7,7 +7,8 @@ AI 코딩 에이전트(Claude Code 등)를 위한 프로젝트 가이드. 코드
 ## 프로젝트 개요
 
 코스피·코스닥에서 **같은 시각** 평소보다 거래대금이 몇 배로 불어난 종목을 하루 네 번 잡아내는 스크리너.
-'투신 수급' 탭(2026-11-03 추가)은 시총 1조 이하에서 투신이 많이 산 종목·연속 순매수 종목을 KRX 확정치로 뽑는다.
+'투신 수급' 탭(2026-11-03 추가)은 투신이 많이 산 종목·연속 순매수 종목을, '기관 수급' 탭(2026-11-11 추가)은
+투신·사모·연기금·3기관 합 순매수 상위와 매수강도 상위를 KRX 확정치로 뽑는다. 두 탭 모두 대상은 코스닥 전 종목·코스피 시총 3조 미만.
 https://kosdaq-surge.yunhee2368.workers.dev/ 와 같은 기능을 목표로 2026-10-23 새로 만들었다
 (화면 디자인·코드는 독자적으로 작성 — 원 사이트의 코드나 브랜딩을 가져오지 말 것).
 
@@ -49,9 +50,10 @@ https://kosdaq-surge.yunhee2368.workers.dev/ 와 같은 기능을 목표로 2026
 | `surge/screen.py` | 중앙값 기준선, 포착, 등급, 일자 파일, 색인, 보관 기간 정리 |
 | `surge/store.py` | 파일 경로·읽기/쓰기 (KST 기준 `now_kst()`) |
 | `surge/krxcal.py` | 휴장일 판정 (stdlib `calendar`와 이름이 겹쳐 krxcal로 지었다) |
-| `flows.py` | 투신 수급 — 빠진 거래일의 KRX 투신 순매수를 채우고 일자별 결과(`docs/data/flow/`)를 만든다 |
+| `flows.py` | 투신·기관 수급 — 빠진 거래일의 KRX 순매수를 채우고 일자별 결과(`docs/data/flow/`, `docs/data/inst/`)를 만든다 |
 | `surge/krx.py` | KRX 정보데이터시스템(pykrx, 로그인 필요) — 투신 순매수 전 종목, 전종목 시세 |
-| `surge/flow.py` | 투신 두 목록(오늘 많이 산 / 연속 순매수) 계산 |
+| `surge/flow.py` | 투신 두 목록(오늘 많이 산 / 연속 순매수) 계산, 대상 판정 `in_universe` |
+| `surge/inst.py` | 기관 탭 표(시장별 순매수 상위·매수강도 상위, 60일 연속 순매수) 계산 |
 | `docs/index.html · app.js · style.css` | 정적 화면 |
 | `.github/workflows/snapshot.yml` | repository_dispatch(`snapshot`) / 평일 18:35 schedule(투신만) / 수동 실행 |
 
@@ -69,6 +71,10 @@ data/flow/{YYYY-MM-DD}.json          {"v": {코드: 투신 순매수(백만원 �
                                      연속일 계산 전용. 45거래일 보관(FLOW_KEEP_DAYS = 화면 30일 + 그 앞 10일 + 여유)
 docs/data/flow/{YYYY-MM-DD}.json     투신 탭의 그날 두 목록. 30거래일 보관(FLOW_SHOW_DAYS). 구조는 surge/flow.py 머리말
 docs/data/flow/index.json            투신 일자 목록과 목록별 건수 {ver, updated, days: [{d, t, k}]}
+data/inst/{YYYY-MM-DD}.json          {"t"|"p"|"y": {코드: 투신·사모·연기금 순매수(백만원 정수, 0 제외)}} 또는 {"x": "휴장"}
+                                     연속일 계산 전용. 62거래일 보관(INST_KEEP_DAYS = 연속일 60일 + 여유). 하루 약 60KB
+docs/data/inst/{YYYY-MM-DD}.json     기관 탭의 그날 표(코스피·코스닥). 30거래일 보관(INST_SHOW_DAYS). 구조는 surge/inst.py 머리말
+docs/data/inst/index.json            기관 일자 목록 {ver, updated, days: [일자...]}
 ```
 '종합' 탭은 저장하지 않는다 — 브라우저가 `slots`를 합쳐 만든다(정렬: 잡힌 시각 수 → 최고 배수).
 
@@ -88,12 +94,22 @@ docs/data/flow/index.json            투신 일자 목록과 목록별 건수 {v
 기준을 바꾸면 **이후 결과만** 바뀐다. 지난 일자 파일은 다시 계산하지 않는다.
 
 ### 투신 수급 (`config.FLOW_*`)
-- 대상: 시총 300억 ~ 1조 (KRX 전종목 시세의 기준일 시총)
+- 대상: 코스닥 전 종목 · 코스피 시총 3조 미만 (`FLOW_MAX_MCAP`, KRX 전종목 시세의 기준일 시총). 기관 탭도 같다
 - 오늘 많이 산: 기준일 투신 순매수 ÷ 시총 ≥ 0.1%
 - 연속 순매수: 기준일까지 연속 3일 이상, 또는 최근 10거래일 중 6일 이상 순매수(누적도 +)
 - 시총 대비 0.3% 이상(`FLOW_BOX_PCT`)은 화면에서 빨간 알약 — 0.3% 연하게, 0.5% 중간, 1% 진하게(단계는 `app.js` `PILL`).
 - 일자 파일은 한 번 만들면 다시 계산하지 않는다 — 기준을 바꾸면 이후 일자만 바뀐다. 지난 일자까지 다시
   만들려면 `surge/flow.py`의 `VERSION`을 올린다(다음 실행이 30일 전부를 다시 만든다. KRX 시세 60번 요청).
+  2026-11-11 대상 변경(300억~1조 → 위)으로 4가 됐다.
+
+### 기관 수급 (`config.INST_*`)
+- 종류: 투신·사모·연기금, 3기관 = 셋의 합. 시장(코스피·코스닥)별로 따로.
+- 순매수 상위 30: 그날 순매수 금액 큰 순. 연속 순매수 = 기준일까지 연달아 순매수한 날 수(최대 60거래일)와 그 기간 누적.
+- 매수강도 상위 30: 순매수 ÷ 시총(%) 큰 순, 순매수 1억·시총 500억 이상만. 민트 = 투신·사모·연기금 상위 30 중 두 곳 이상.
+- 노랑 = 시총 대비 0.3% 이상(순매수 칸) · 코스닥 시총 1조 미만(시총 칸 — 코스피는 대상이 전부 3조 미만이라 안 칠한다).
+  보라 = 투신 2일 이상 연속. 원 요청자가 준 이미지 표(노랑·보라·민트)를 따른 것이라 투신 탭의 빨간 알약과 다르다.
+- 처음 채울 땐 한 실행에 20일치(`INST_FETCH_MAX`, KRX 120번)만 받고, 62일이 다 모인 뒤 결과를 만든다.
+  그래서 처음 만든 30일 중 오래된 날은 연속일을 60일보다 짧게 센다(`win`, 화면에 안내 줄).
 
 ---
 
@@ -150,8 +166,8 @@ POST https://api.github.com/repos/shinkiyeol9814-droid/kosdaq-surge/dispatches
   환경변수로 로그인한다. 자매 프로젝트 stockapp이 같은 방식으로 미국 러너에서 매일 돌고 있다.
 - 브라우저 로그인 화면엔 키보드 보안(nProtect)이 붙어 있지만 pykrx의 폼 POST(`MDCCOMS001D1.cmd`)는 통한다.
   로그인을 직접 구현하거나 보안 장치를 우회하려 하지 말 것 — pykrx가 깨지면 pykrx를 올린다.
-- 투신 순매수 = [12010] 투자자별 순매수상위종목(`MDCSTAT02401`, 투신 3000), 시세·시총 = [12001] 전종목 시세.
-  둘 다 시장당 하루 한 번 요청.
+- 투신 순매수 = [12010] 투자자별 순매수상위종목(`MDCSTAT02401`, 투신 3000·사모 3100·연기금 6000),
+  시세·시총 = [12001] 전종목 시세. 모두 시장당 하루 한 번 요청(투신은 투신 탭과 기관 탭이 따로 받는다).
 - 로컬엔 계정이 없다. 수집은 Actions에서만 확인한다.
 
 ---
@@ -179,7 +195,8 @@ POST https://api.github.com/repos/shinkiyeol9814-droid/kosdaq-surge/dispatches
 
 ## 화면 (`docs/`)
 
-- 상태는 URL 해시 `#YYYY-MM-DD/slot`, 투신 탭은 `#flow/{t|k}/YYYY-MM-DD`(t 오늘 많이 산, k 연속. 일자 생략 = 최신) —
+- 상태는 URL 해시 `#YYYY-MM-DD/slot`, 투신 탭은 `#flow/{t|k}/YYYY-MM-DD`(t 오늘 많이 산, k 연속. 일자 생략 = 최신),
+  기관 탭은 `#inst/{pow|s|t|p|y}/{K|Q}/YYYY-MM-DD` —
   링크 공유·뒤로 가기 가능(`hashchange` 처리).
 - `index.json`은 매번 `?t=now`로, 일자 파일은 `?v=updated`로 받는다(Pages 캐시 10분 회피).
 - 다크 기본 + `prefers-color-scheme: light` 대응. 색은 `:root` 토큰으로만.

@@ -23,8 +23,8 @@ KEEP_DAYS = 30                   # 화면에 남길 거래일 수(일자 탭)
 SNAP_KEEP_DAYS = 45              # 스냅샷 보관 거래일 수(중앙값 20일 + 여유)
 
 # ── 투신 수급 (KRX 정보데이터시스템, 장 마감 뒤 확정치) ──────────────────────
-FLOW_MIN_MCAP = 300e8            # 시가총액 300억 이상
-FLOW_MAX_MCAP = 1e12             # … 1조 이하만
+# 투신·기관 탭이 보는 종목 — 시장별 시총 상한(None이면 전부). 코스닥은 전부, 코스피는 3조 미만
+FLOW_MAX_MCAP = {"K": 3e12, "Q": None}
 FLOW_MIN_PCT = 0.1               # '오늘 많이 산' — 투신 순매수 ÷ 시가총액(%) 하한
 FLOW_BOX_PCT = 0.3               # 시총 대비 순매수가 이 이상이면 화면에서 빨간 알약(0.5·1%는 app.js PILL)
 FLOW_DAYS = 10                   # 매수일·연속일을 세는 거래일 수
@@ -33,3 +33,15 @@ FLOW_BUY_DAYS = 6                # … 또는 FLOW_DAYS 중 이 일수 이상 �
 FLOW_FINAL_HHMM = "1800"         # 이 시각 뒤에야 그날 수급을 확정치로 받는다
 FLOW_SHOW_DAYS = 30              # 투신 탭 일자 버튼 수(docs/data/flow 보관 거래일)
 FLOW_KEEP_DAYS = 45              # data/flow 원자료 보관 거래일 수(30일 + 그 앞 10일 + 여유)
+
+# ── 기관 수급 (투신·사모·연기금, KRX 확정치) — '기관 수급' 탭, 코스피·코스닥 따로 ─────────
+INST_KINDS = (("t", "투신"), ("p", "사모"), ("y", "연기금"))   # s(3기관 합)는 이 셋의 합
+INST_TOP = 30                    # 목록마다 상위 몇 종목
+INST_STREAK_DAYS = 60            # 연속 순매수를 세는 최대 거래일
+INST_CAP_HL = {"Q": 1e12}        # 시총이 이보다 작으면 노란 칸 — 코스피는 대상이 전부 3조 미만이라 뺐다
+INST_HL_PCT = 0.3                # 순매수 ÷ 시총(%)이 이 이상이면 노란 칸, 매수강도는 굵게
+INST_POWER_MIN_NET = 1e8         # 매수강도 목록 — 순매수 1억 이상 …
+INST_POWER_MIN_MCAP = 500e8      # … 시총 500억 이상
+INST_SHOW_DAYS = 30              # 기관 탭 일자 버튼 수(docs/data/inst 보관 거래일)
+INST_KEEP_DAYS = 62              # data/inst 원자료 보관 거래일 수(연속일 60일 + 여유)
+INST_FETCH_MAX = 20              # 한 번 실행에서 받는 원자료 일수 상한 — 처음 채울 때 KRX에 몰아서 요청하지 않게

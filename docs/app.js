@@ -1,5 +1,6 @@
 // 거래대금 급증 스크리너 — data/index.json과 data/days/{일자}.json을 읽어 그린다.
-// 일자 파일 구조는 surge/screen.py 머리말 참고. 투신 수급 탭은 data/flow/index.json과 data/flow/{일자}.json(surge/flow.py 머리말).
+// 일자 파일 구조는 surge/screen.py 머리말 참고. 투신 수급 탭은 data/flow/index.json과 data/flow/{일자}.json(surge/flow.py 머리말),
+// 기관 수급 탭은 data/inst/index.json과 data/inst/{일자}.json(surge/inst.py 머리말).
 (() => {
   const SLOTS = ["1005", "1205", "1405", "close"];
   const LABEL = { all: "종합", "1005": "10:05", "1205": "12:05", "1405": "14:05", close: "종가" };
@@ -7,7 +8,8 @@
   const $ = (id) => document.getElementById(id);
 
   const state = { view: "surge", idx: null, docs: {}, day: null, slot: "all", mkt: "", sort: null,
-    fidx: null, fdocs: {}, fday: null, flow: null, ftab: "t" };
+    fidx: null, fdocs: {}, fday: null, flow: null, ftab: "t",
+    iidx: null, idocs: {}, iday: null, inst: null, itab: "pow", imkt: "Q" };
 
   const fmt = (v, d = 0) => (v == null || isNaN(v) ? "–" :
     Number(v).toLocaleString("ko-KR", { minimumFractionDigits: d, maximumFractionDigits: d }));
@@ -180,7 +182,7 @@
   function renderFlowRules(c) {
     const eok = (w) => fmt(w / 1e8);
     $("flow-rules").innerHTML = `
-      <p>시가총액 <b>${eok(c.min_mcap)}억 ~ ${eok(c.max_mcap)}억</b> 종목만 본다. 투신 순매수는 KRX 투자자별
+      <p>${universe(c.max_mcap)}만 본다. 투신 순매수는 KRX 투자자별
         순매수(기관 중 투자신탁)의 장 마감 뒤 확정치다.</p>
       <p><b>오늘 많이 산</b> — 기준일 투신 순매수가 시가총액의 <b>${c.min_pct}%</b> 이상.</p>
       <p><b>연속 순매수</b> — 기준일까지 <b>${c.streak}일</b> 이상 연속 순매수, 또는 최근 <b>${c.days}거래일</b> 중
@@ -188,6 +190,12 @@
       <p>막대는 최근 ${c.days}거래일 투신 순매수 — 위로 빨강은 순매수, 아래로 파랑은 순매도.
         시총 대비는 <span class="pill p1">${c.box_pct ?? 0.3}%</span> <span class="pill p2">${PILL[0]}%</span>
         <span class="pill p3">${PILL[1]}%</span> 이상으로 나눠 진하게.</p>`;
+  }
+
+  // 투신·기관 탭 대상 — 시장별 시총 상한(null이면 전부)
+  function universe(m) {
+    const one = (k, t) => m?.[k] ? `${t} 시총 <b>${fmt(m[k] / 1e12)}조</b> 미만` : `${t} <b>전 종목</b>`;
+    return m && typeof m === "object" ? `${one("Q", "코스닥")} · ${one("K", "코스피")}` : "대상 종목";
   }
 
   function flowBars(s) {
@@ -314,8 +322,123 @@
     history.replaceState(null, "", `#flow/${state.ftab}/${state.fday}`);
   }
 
+  // ── 기관 수급 ─────────────────────────────────────────────────────────
+  const ITABS = { pow: "매수강도", s: "3기관", t: "투신", p: "사모", y: "연기금" };
+  const MKT = { K: "코스피", Q: "코스닥" };
+  const signed = (v, d = 1) => `${v > 0 ? "+" : ""}${fmt(v, d)}`;
+
+  function renderInstRules(c) {
+    const eok = (w) => fmt(w / 1e8);
+    $("inst-rules").innerHTML = `
+      <p>${universe(c.max_mcap)}만 본다. 3기관 = 투신 + 사모 + 연기금. KRX 투자자별 순매수의 장 마감 뒤 확정치다.</p>
+      <p><b>매수강도</b> = 그날 순매수 ÷ 시가총액(%). 순매수 <b>${eok(c.pow_min_net)}억</b>·시총 <b>${eok(c.pow_min_mcap)}억</b>
+        이상에서 상위 ${c.top}. <span class="hl-mint">민트</span>는 투신·사모·연기금 상위 ${c.top} 중 두 곳 이상에 든 종목,
+        굵게는 <b>${c.hl_pct}%</b> 이상.</p>
+      <p><b>3기관·투신·사모·연기금</b> — 그날 순매수 금액 큰 순 ${c.top}. 괄호는 시총 대비 %.
+        연속 순매수는 기준일까지 며칠 연달아 순매수였는지(최근 ${c.streak_days}거래일)와 그 기간 누적.</p>
+      <p><span class="hl-yel">노랑</span> = 순매수가 시총의 ${c.hl_pct}% 이상(순매수 칸)${c.cap_hl.Q ? ` · 코스닥 시총 ${fmt(c.cap_hl.Q / 1e12)}조 미만(시총 칸)` : ""},
+        <span class="hl-pur">보라</span> = 투신 2일 이상 연속 순매수.</p>`;
+  }
+
+  function renderInstDays() {
+    $("idays").innerHTML = state.iidx.days.map((d) => {
+      const wd = WD[new Date(d + "T12:00:00Z").getUTCDay()];
+      return `<button data-d="${d}" class="${d === state.iday ? "on" : ""}">
+        <span class="d">${d.slice(5)} <span class="w">${wd}</span></span></button>`;
+    }).join("");
+    const on = $("idays").querySelector(".on");
+    if (on) on.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }
+
+  function renderInstTabs() {
+    $("itabs").innerHTML = Object.entries(ITABS).map(([k, t]) =>
+      `<button data-i="${k}" class="${k === state.itab ? "on" : ""}">${t}</button>`).join("");
+    $("imkt").querySelectorAll("button").forEach((x) => x.classList.toggle("on", x.dataset.m === state.imkt));
+  }
+
+  const nameCell = (code, r) => `<a class="nm" href="https://finance.naver.com/item/main.naver?code=${code}" target="_blank" rel="noopener">${esc(r.n)}</a>`;
+  const chgCell = (c) => `<td class="r ${cls(c)}">${signed(c)}%</td>`;
+
+  function renderInst() {
+    const f = state.inst, m = f.mk[state.imkt], c = f.criteria, wd = WD[new Date(f.d + "T12:00:00Z").getUTCDay()];
+    const pow = state.itab === "pow";
+    $("igrid").hidden = !pow; $("twrap").hidden = pow;
+    $("summary").innerHTML = `${MKT[state.imkt]} ${ITABS[state.itab]} 상위 <b>${c.top}</b> · 기준일 ${f.d.slice(5)} (${wd}) 장 마감 뒤 확정치`;
+    $("note").hidden = f.win >= c.streak_days;
+    $("note").textContent = `연속 순매수는 최근 ${f.win}거래일 안에서 센 값이다(원자료가 아직 ${c.streak_days}일치 모이지 않았다).`;
+    $("empty").hidden = true;
+    if (pow) {
+      const hot = {};
+      for (const k of ["t", "p", "y"]) for (const code of m.pow[k]) hot[code] = (hot[code] || 0) + 1;
+      $("igrid").innerHTML = ["s", "t", "p", "y"].map((k) => `<section class="icard">
+          <h3>${k === "s" ? "3기관 합" : ITABS[k]} 상위 ${c.top}</h3>
+          <table><thead><tr><th>#</th><th>종목</th><th class="r">매수강도</th><th class="r">등락률</th></tr></thead><tbody>
+          ${m.pow[k].map((code, i) => {
+            const r = m.stocks[code], mint = hot[code] >= 2 ? "hl-mint" : "";
+            return `<tr><td class="idx">${i + 1}</td><td class="${mint}">${nameCell(code, r)}</td>
+              <td class="r ${mint} ${r[k][1] >= c.hl_pct ? "strong" : ""}">${fmt(r[k][1], 2)}</td>${chgCell(r.c)}</tr>`;
+          }).join("") || `<tr><td colspan="4" class="sub">없음</td></tr>`}
+          </tbody></table></section>`).join("");
+      return;
+    }
+    const k = state.itab, others = ["t", "p", "y"].filter((x) => x !== k);
+    $("thead").innerHTML = [["#", ""], ["종목", ""], ["시총", "r"], ["등락률", "r"],
+      [`${k === "s" ? "3기관 합산" : ITABS[k]} 순매수 (시총 대비)`, "r key"], ["연속 순매수", "r key"],
+      ...others.map((o) => [ITABS[o], "r"])].map(([t, x], i) => `<th class="${x}" ${i === 1 ? 'data-k="name"' : ""}>${t}</th>`).join("");
+    const capHl = c.cap_hl[state.imkt];
+    const streak = (st, sum) => st >= 2 ? `${st}일(${signed(sum, 0)}억)` : `${st}일`;
+    $("tbody").innerHTML = m.top[k].map((code, i) => {
+      const r = m.stocks[code], [net, pct, st, sum] = r[k];
+      const ostr = others.map((o) => {
+        const [n, , s2, sm] = r[o], pur = o === "t" && s2 >= 2;
+        return `<td class="r ${cls(n)} ${pur ? "hl-pur strong" : ""}">${signed(n)}${pur ? ` (${streak(s2, sm)})` : ""}</td>`;
+      }).join("");
+      return `<tr>
+        <td class="idx">${i + 1}</td>
+        <td class="name">${nameCell(code, r)}</td>
+        <td class="r ${capHl && r.cap < capHl / 1e8 ? "hl-yel strong" : ""}">${fmt(r.cap)}억</td>
+        ${chgCell(r.c)}
+        <td class="r strong ${pct >= c.hl_pct ? "hl-yel" : "up tint"}">${signed(net)}억 (${signed(pct, 2)}%)</td>
+        <td class="r ${k === "t" && st >= 2 ? "hl-pur" : ""} ${st >= 3 ? "up strong" : st === 2 ? "strong" : ""}">${streak(st, sum)}</td>
+        ${ostr}</tr>`;
+    }).join("");
+    $("empty").hidden = m.top[k].length > 0;
+    $("empty").textContent = "순매수 종목이 없다.";
+  }
+
+  async function showInst() {
+    if (!state.iidx) {
+      $("tbody").innerHTML = "";
+      $("summary").textContent = "불러오는 중…";
+      try {
+        state.iidx = await getJSON(`data/inst/index.json?t=${Date.now()}`);
+      } catch (e) { state.iidx = { days: [] }; }
+      if (state.view === "inst" && state.iidx.updated) $("updated").textContent = `갱신 ${state.iidx.updated}`;
+    }
+    if (!state.iidx.days.length) {
+      $("igrid").hidden = true; $("twrap").hidden = false;
+      $("thead").innerHTML = ""; $("tbody").innerHTML = ""; $("summary").textContent = ""; $("note").hidden = true;
+      $("empty").hidden = false; $("empty").textContent = "기관 수급 데이터를 모으는 중이다 — 처음엔 하루쯤 걸린다.";
+      return;
+    }
+    if (!state.iidx.days.includes(state.iday)) state.iday = state.iidx.days[0];
+    renderInstDays();
+    let doc = state.idocs[state.iday];
+    if (!doc) {
+      $("summary").textContent = "불러오는 중…";
+      doc = state.idocs[state.iday] = await getJSON(`data/inst/${state.iday}.json?v=${encodeURIComponent(state.iidx.updated)}`);
+    }
+    state.inst = doc;
+    renderInstRules(doc.criteria);
+    renderInstTabs();
+    renderInst();
+    history.replaceState(null, "", `#inst/${state.itab}/${state.imkt}/${state.iday}`);
+  }
+
   function render() {
-    if (state.view === "flow") renderFlow(); else renderTable(state.docs[state.day]);
+    if (state.view === "flow") renderFlow();
+    else if (state.view === "inst") renderInst();
+    else renderTable(state.docs[state.day]);
   }
 
   function setView(v) {
@@ -323,8 +446,12 @@
     $("views").querySelectorAll("button").forEach((x) => x.classList.toggle("on", x.dataset.v === v));
     $("v-surge").hidden = v !== "surge";
     $("v-flow").hidden = v !== "flow";
-    const src = v === "flow" ? state.fidx : state.idx;
+    $("v-inst").hidden = v !== "inst";
+    $("mkt").hidden = v === "inst"; $("imkt").hidden = v !== "inst";
+    if (v !== "inst") { $("igrid").hidden = true; $("twrap").hidden = false; }
+    const src = { flow: state.fidx, inst: state.iidx }[v] ?? state.idx;
     $("updated").textContent = src ? `갱신 ${src.updated}` : "";
+    if (v === "inst") return showInst().catch((e) => { $("summary").textContent = `불러오기 실패: ${e.message}`; });
     if (v === "flow") return showFlow().catch((e) => { $("summary").textContent = `불러오기 실패: ${e.message}`; });
     if (!state.idx || !state.day) {
       $("thead").innerHTML = ""; $("tbody").innerHTML = ""; $("summary").textContent = ""; $("note").hidden = true;
@@ -362,6 +489,18 @@
       const b = e.target.closest("button"); if (!b) return;
       state.fday = b.dataset.d; state.sort = null; showFlow();
     });
+    $("itabs").addEventListener("click", (e) => {
+      const b = e.target.closest("button"); if (!b) return;
+      state.itab = b.dataset.i; showInst();
+    });
+    $("idays").addEventListener("click", (e) => {
+      const b = e.target.closest("button"); if (!b) return;
+      state.iday = b.dataset.d; showInst();
+    });
+    $("imkt").addEventListener("click", (e) => {
+      const b = e.target.closest("button"); if (!b) return;
+      state.imkt = b.dataset.m; showInst();
+    });
     $("days").addEventListener("click", (e) => {
       const b = e.target.closest("button"); if (!b) return;
       state.day = b.dataset.d; state.sort = null; show();
@@ -388,7 +527,7 @@
 
   async function init() {
     bind();
-    const [d, s, x] = decodeURIComponent(location.hash.slice(1)).split("/");
+    const [d, s, x, y] = decodeURIComponent(location.hash.slice(1)).split("/");
     try {
       state.idx = await getJSON(`data/index.json?t=${Date.now()}`);
       renderRules(state.idx.criteria);
@@ -396,12 +535,19 @@
       state.slot = LABEL[s] ? s : "all";
     } catch (e) { /* 급증 데이터가 없어도 투신 탭은 볼 수 있게 */ }
     if (d === "flow") { state.ftab = FTABS[s] ? s : "t"; state.fday = x || null; }
-    setView(d === "flow" ? "flow" : "surge");
+    if (d === "inst") { state.itab = ITABS[s] ? s : "pow"; state.imkt = MKT[x] ? x : "Q"; state.iday = y || null; }
+    setView(d === "flow" || d === "inst" ? d : "surge");
   }
 
-  // 주소의 #일자/시각(또는 #flow/목록/일자)만 바꿔 들어와도(뒤로 가기·링크) 그 화면으로
+  // 주소의 #일자/시각(또는 #flow/목록/일자, #inst/표/시장/일자)만 바꿔 들어와도(뒤로 가기·링크) 그 화면으로
   window.addEventListener("hashchange", () => {
-    const [d, s, x] = decodeURIComponent(location.hash.slice(1)).split("/");
+    const [d, s, x, y] = decodeURIComponent(location.hash.slice(1)).split("/");
+    if (d === "inst") {
+      const t = ITABS[s] ? s : "pow", mk = MKT[x] ? x : "Q", day = y || state.iday;
+      if (state.view === "inst" && t === state.itab && mk === state.imkt && day === state.iday) return;
+      Object.assign(state, { itab: t, imkt: mk, iday: day });
+      return setView("inst");
+    }
     if (d === "flow") {
       const t = FTABS[s] ? s : "t", day = x || state.fday;
       if (state.view === "flow" && t === state.ftab && day === state.fday) return;

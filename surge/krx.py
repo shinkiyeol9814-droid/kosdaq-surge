@@ -1,5 +1,5 @@
 """
-KRX 정보데이터시스템 — 투신 순매수(전 종목)와 전종목 시세. pykrx를 거친다.
+KRX 정보데이터시스템 — 투자자별 순매수(전 종목)와 전종목 시세. pykrx를 거친다.
 
 2026년부터 KRX가 로그인을 요구해(비로그인 요청은 400 "LOGOUT") pykrx가 환경변수 KRX_ID / KRX_PW로
 로그인한다 — Actions Secrets에만 있다. pykrx는 import만으로도 로그인 메시지를 찍으므로 필요할 때만
@@ -22,12 +22,13 @@ def _num(s) -> float:
         return 0.0
 
 
-def net_buy(day: str) -> dict:
-    """{코드: 투신 순매수거래대금(원)} — 코스피+코스닥. day 'YYYYMMDD'. 휴장일이면 빈 dict."""
+def net_buy(day: str, investor: str = "투신") -> dict:
+    """{코드: 순매수거래대금(원)} — 코스피+코스닥. day 'YYYYMMDD', investor 투신·사모·연기금 등.
+    휴장일이면 빈 dict."""
     from pykrx import stock
     out = {}
     for market, _, _ in MARKETS:
-        df = stock.get_market_net_purchases_of_equities_by_ticker(day, day, market, "투신")
+        df = stock.get_market_net_purchases_of_equities_by_ticker(day, day, market, investor)
         if df is None or df.empty:
             continue
         for code, v in df["순매수거래대금"].items():

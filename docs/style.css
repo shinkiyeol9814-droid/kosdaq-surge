@@ -13,6 +13,11 @@
   --pill-1: rgba(239, 83, 80, 0.18);
   --pill-1-text: #ff8a80;
   --pill-2: rgba(239, 83, 80, 0.5);
+  --hl-yel: #ffe58a;
+  --hl-yel-text: #3a2f00;
+  --hl-pur: rgba(149, 117, 205, 0.3);
+  --hl-mint: rgba(77, 208, 170, 0.26);
+  --tint: rgba(239, 83, 80, 0.07);
   color-scheme: dark;
 }
 @media (prefers-color-scheme: light) {
@@ -29,11 +34,17 @@
     --pill-1: rgba(239, 83, 80, 0.14);
     --pill-1-text: #c62828;
     --pill-2: rgba(239, 83, 80, 0.7);
+    --hl-yel: #fff0b3;
+    --hl-yel-text: #3a2f00;
+    --hl-pur: #e9dff7;
+    --hl-mint: #b9efdc;
+    --tint: #fdf1f0;
     color-scheme: light;
   }
 }
 
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }   /* .seg·.igrid 같은 display 지정이 hidden 속성을 이기지 않게 */
 html, body { margin: 0; }
 body {
   background: var(--bg);
@@ -124,6 +135,23 @@ td.name .news:hover { color: var(--text); }
 .pill.p2 { background: var(--pill-2); color: #fff; }
 .pill.p3 { background: var(--up); color: #fff; font-weight: 700; }
 .sub { color: var(--faint); font-size: .72rem; }
+/* 기관 수급 강조 칸 — 노랑: 시총 대비 0.3%↑·소형주, 보라: 투신 2일↑ 연속, 민트: 매수강도 두 곳 이상 */
+.hl-yel, #tbl td.hl-yel { background: var(--hl-yel); color: var(--hl-yel-text); }
+.hl-pur, #tbl td.hl-pur { background: var(--hl-pur); }
+.hl-mint, .icard td.hl-mint { background: var(--hl-mint); }
+#tbl td.tint { background: var(--tint); }
+.rules-body .hl-yel, .rules-body .hl-pur, .rules-body .hl-mint { padding: 0 4px; border-radius: 3px; color: var(--text); }
+.rules-body .hl-yel { color: var(--hl-yel-text); }
+#tbl th.key { color: var(--text); }
+.igrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 10px; }
+.icard { border: 1px solid var(--line); border-radius: 10px; background: var(--panel); overflow: hidden; }
+.icard h3 { margin: 0; padding: 8px 10px; font-size: .85rem; background: var(--panel-2); border-bottom: 1px solid var(--line); }
+.icard table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; font-size: .82rem; }
+.icard th, .icard td { padding: 4px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; text-align: left; }
+.icard th { font-size: .72rem; color: var(--muted); font-weight: 600; }
+.icard .r { text-align: right; }
+.icard .nm { text-decoration: none; font-weight: 600; }
+.icard tbody tr:last-child td { border-bottom: 0; }
 .up { color: var(--up); }
 .down { color: var(--down); }
 .flat { color: var(--flat); }

@@ -19,7 +19,7 @@
   </header>
 
   <nav class="views" id="views" aria-label="화면">
-    <button data-v="surge" class="on">거래대금 급증</button><button data-v="flow">투신 수급</button>
+    <button data-v="surge" class="on">거래대금 급증</button><button data-v="flow">투신 수급</button><button data-v="inst">기관 수급</button>
   </nav>
 
   <div id="v-surge">
@@ -41,15 +41,28 @@
     <nav class="slots" id="ftabs" aria-label="목록"></nav>
   </div>
 
+  <div id="v-inst" hidden>
+    <details class="rules">
+      <summary>기관 수급 기준</summary>
+      <div class="rules-body" id="inst-rules"></div>
+    </details>
+    <nav class="days" id="idays" aria-label="기관 일자"></nav>
+    <nav class="slots" id="itabs" aria-label="표"></nav>
+  </div>
+
   <div class="bar">
     <div class="summary" id="summary"></div>
     <div class="seg" id="mkt" role="group" aria-label="시장">
       <button data-m="" class="on">전체</button><button data-m="K">코스피</button><button data-m="Q">코스닥</button>
     </div>
+    <div class="seg" id="imkt" role="group" aria-label="기관 시장" hidden>
+      <button data-m="Q" class="on">코스닥</button><button data-m="K">코스피</button>
+    </div>
   </div>
   <div class="note" id="note" hidden></div>
 
-  <div class="table-wrap">
+  <div class="igrid" id="igrid" hidden></div>
+  <div class="table-wrap" id="twrap">
     <table id="tbl">
       <thead><tr id="thead"></tr></thead>
       <tbody id="tbody"></tbody>
@@ -59,7 +72,7 @@
 
   <footer>
     거래대금은 그 시각까지의 누적값이다. 같은 시각끼리 비교하므로 장 초반의 일시적 쏠림과 하루 전체의 급증을
-    따로 볼 수 있다. 시세는 네이버 금융 공개 데이터, 투신 수급은 KRX 정보데이터시스템의 장 마감 뒤 확정치 —
+    따로 볼 수 있다. 시세는 네이버 금융 공개 데이터, 투신·기관 수급은 KRX 정보데이터시스템의 장 마감 뒤 확정치 —
     투자 판단의 근거로 삼기 전에 원 자료를 확인할 것.
   </footer>
 </main>

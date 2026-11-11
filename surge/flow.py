@@ -1,5 +1,5 @@
 """
-투신 수급 — 시총 300억~1조 종목에서 두 목록을 뽑는다.
+투신 수급 — 코스닥 전 종목·코스피 시총 3조 미만(config.FLOW_MAX_MCAP)에서 두 목록을 뽑는다.
 
   오늘 많이 산    그날 투신 순매수 ÷ 시가총액 ≥ FLOW_MIN_PCT
   연속 순매수     연속 FLOW_STREAK일 이상, 또는 최근 FLOW_DAYS일 중 FLOW_BUY_DAYS일 이상(누적도 순매수)
@@ -14,7 +14,13 @@ docs/data/flow/{기준일}.json — 하루 하나, FLOW_SHOW_DAYS 보관. 목록
 from surge import config as C
 from surge import screen, store
 
-VERSION = 3                      # 일자 파일 구조를 바꾸면 올린다(2: 3개월 일봉, 3: 일자별 파일)
+VERSION = 4                      # 일자 파일 구조를 바꾸면 올린다(2: 3개월 일봉, 3: 일자별 파일, 4: 코스닥 전부·코스피 3조 미만)
+
+
+def in_universe(mkt: str, cap: float) -> bool:
+    """투신·기관 탭 대상 — config.FLOW_MAX_MCAP의 시장별 상한 미만."""
+    top = C.FLOW_MAX_MCAP.get(mkt)
+    return cap > 0 and (top is None or cap < top)
 
 
 def build(days: list, listing: dict, updated: str) -> dict:
@@ -22,7 +28,7 @@ def build(days: list, listing: dict, updated: str) -> dict:
     series = [(store.load_flow_day(d) or {}).get("v", {}) for d in days]
     stocks = {}
     for code, (name, mkt, price, chg, cap) in listing.items():
-        if not (C.FLOW_MIN_MCAP <= cap <= C.FLOW_MAX_MCAP):
+        if not in_universe(mkt, cap):
             continue
         s = [v.get(code, 0) / 100 for v in series]          # 백만원 → 억
         net = s[-1]
@@ -47,6 +53,6 @@ def build(days: list, listing: dict, updated: str) -> dict:
         if ex.get("k"):
             stocks[code]["ohlc"] = ex["k"]
     return {"ver": VERSION, "updated": updated, "d": days[-1], "days": days, "stocks": stocks,
-            "criteria": {"min_mcap": C.FLOW_MIN_MCAP, "max_mcap": C.FLOW_MAX_MCAP,
+            "criteria": {"max_mcap": C.FLOW_MAX_MCAP,
                          "min_pct": C.FLOW_MIN_PCT, "box_pct": C.FLOW_BOX_PCT, "days": C.FLOW_DAYS,
                          "streak": C.FLOW_STREAK, "buy_days": C.FLOW_BUY_DAYS}}
