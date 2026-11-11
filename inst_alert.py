@@ -169,4 +169,8 @@ def main():
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    try:
+        sys.exit(main())
+    except Exception as e:   # Actions 로그는 로그인해야 보여서 사유를 실행 요약의 주석으로도 남긴다
+        print(f"::error title=종합 수급 사진::{type(e).__name__}: {e}".replace(chr(10), " ")[:900])
+        raise
