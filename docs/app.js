@@ -325,6 +325,7 @@
   // ── 종합 수급 ─────────────────────────────────────────────────────────
   // 시장마다 표 다섯 장(매수강도 4열 + 3기관·투신·사모·연기금 순매수 Top30)을 한 화면에 차례로 그린다.
   // 화면 테마와 상관없이 흰 바탕 표(.sheet) — 요청받은 이미지 표와 같은 모양으로.
+  // f.pre가 있으면 16시 잠정치 — inst_alert.py가 임시 사본에서 그려 텔레그램 사진으로만 보낸다(사이트엔 확정치만).
   const KNAME = { s: "3기관", t: "투신", p: "사모", y: "연기금" };
   const KTITLE = { s: "3기관(투신+사모+연기금) 합산", t: "투신", p: "사모", y: "연기금" };
   const POWTITLE = { s: "3기관 합", t: "투신", p: "사모펀드", y: "연기금" };
@@ -360,7 +361,7 @@
             <td class="${sc(r.c)}">${sg(r.c)}%</td></tr>`;
         }).join("") || `<tr><td colspan="4">없음</td></tr>`}
         </tbody></table></div>`).join("");
-    return `<section class="sheet" id="sh-pow"><h2>${MKT[state.imkt]} 매수강도 상위 ${c.top} — ${f.d}</h2>
+    return `<section class="sheet" id="sh-pow"><h2>${MKT[state.imkt]} 매수강도 상위 ${c.top} — ${f.d}${f.pre ? ` (${f.pre})` : ""}</h2>
       <div class="pow4">${cols}</div>
       <p class="foot">매수강도 = 그날 순매수 금액 ÷ 시가총액 × 100(%). 3기관 = 투신+사모+연기금.
         순매수 ${fmt(c.pow_min_net / 1e8)}억·시총 ${fmt(c.pow_min_mcap / 1e8)}억 이상. 민트 = 투신·사모·연기금 Top${c.top} 중 2곳 이상 등장.
@@ -383,7 +384,7 @@
         <td class="b s-up ${pct >= c.hl_pct ? "yel" : "tint"}">${sg(net)}억 (${sg(pct, 2)}%)</td>
         <td class="${pur ? "pur" : ""} ${st >= 3 ? "b s-up" : st === 2 ? "b" : ""}">${streak(st, sum)}</td>${ost}</tr>`;
     }).join("");
-    return `<section class="sheet" id="sh-${k}"><h2>${MKT[state.imkt]} ${KTITLE[k]} 순매수 Top${c.top} — ${f.d} (순매수 금액 순)</h2>
+    return `<section class="sheet" id="sh-${k}"><h2>${MKT[state.imkt]} ${KTITLE[k]} 순매수 Top${c.top} — ${f.d} (${f.pre ? `${f.pre}, ` : ""}순매수 금액 순)</h2>
       <div class="sheet-scroll"><table class="wide"><thead><tr><th>#</th><th>종목</th><th>시총</th><th>등락률</th>
         <th class="key">${k === "s" ? "3기관 합산" : `${KNAME[k]} 순매수`}<br>(시총 대비)</th><th class="key">연속<br>순매수</th>
         ${others.map((o) => `<th>${KNAME[o]}</th>`).join("")}</tr></thead>
@@ -398,7 +399,7 @@
     const f = state.inst, m = f.mk[state.imkt], c = f.criteria;
     const wd = WD[new Date(f.d + "T12:00:00Z").getUTCDay()];
     $("igrid").hidden = false; $("twrap").hidden = true; $("empty").hidden = true;
-    $("summary").innerHTML = `${MKT[state.imkt]} 종합 수급 · 기준일 ${f.d.slice(5)} (${wd}) 장 마감 뒤 확정치 · ${universe(c.max_mcap)}`;
+    $("summary").innerHTML = `${MKT[state.imkt]} 종합 수급 · 기준일 ${f.d.slice(5)} (${wd}) ${f.pre || "장 마감 뒤 확정치"} · ${universe(c.max_mcap)}`;
     $("note").hidden = f.win >= c.streak_days;
     $("note").textContent = `연속 순매수는 최근 ${f.win}거래일 안에서 센 값이다(원자료가 아직 ${c.streak_days}일치 모이지 않았다).`;
     $("igrid").innerHTML = powSheet(f, m) + ["s", "t", "p", "y"].map((k) => topSheet(f, m, k)).join("");

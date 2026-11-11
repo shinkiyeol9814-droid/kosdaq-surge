@@ -7,6 +7,8 @@ name: Snapshot
 # 슬롯을 직접 줘도 된다: 1005 | 1205 | 1405 | close
 # 투신 수급(flows.py)은 매 실행 뒤에 돌고, 할 일이 없으면 그냥 끝난다. 그날 확정치는 18시 이후라
 # schedule(평일 18:35 KST)로 따로 부른다 — 늦게 돌아도 상관없는 일이라 GitHub cron 지연은 괜찮다.
+# 텔레그램: 수집한 시각마다 급등 포착(notify.py), 16시 호출엔 종합 수급 표 사진(inst_alert.py, 잠정치).
+# 16시 사진은 cron-job.org 잡의 '시'에 16을 넣어야 불린다(16:05에 보내고, KRX가 아직이면 16:35에 다시).
 on:
   repository_dispatch:
     types: [snapshot]
@@ -21,6 +23,10 @@ on:
         default: close
       backfill:
         description: "슬롯 대신 5분봉 백필(최근 약 7거래일, 없는 날만)"
+        type: boolean
+        default: false
+      alert_test:
+        description: "수집 없이 텔레그램 알림만 시험(오늘 마지막 급등 시각 + 종합 수급 사진)"
         type: boolean
         default: false
 
@@ -47,7 +53,7 @@ jobs:
 
       - name: Collect
         id: collect
-        if: github.event_name != 'schedule'
+        if: github.event_name != 'schedule' && !inputs.alert_test
         env:
           SLOT: ${{ github.event.client_payload.slot || inputs.slot }}
           BACKFILL: ${{ inputs.backfill }}
@@ -66,6 +72,32 @@ jobs:
           KRX_PW: ${{ secrets.KRX_PW }}
         run: python flows.py
 
+      # 종합 수급 사진 — 16시 호출(auto)이나 알림 시험일 때만. 브라우저·한글 글꼴 설치(1분 남짓)는 보낼 때만 한다.
+      # 보낸 날을 data/alert_state.json에 적으므로 Commit보다 앞에 둔다(16:35 호출이 다시 보내지 않게).
+      - name: Inst alert check
+        id: inst
+        if: github.event_name == 'repository_dispatch' || inputs.alert_test
+        run: python inst_alert.py --check ${{ inputs.alert_test != true && '--auto' || '' }}
+
+      - name: Browser
+        if: steps.inst.outputs.go == 'true'
+        run: |
+          sudo apt-get install -y -qq fonts-noto-cjk > /dev/null
+          pip install -q playwright
+          python -m playwright install --with-deps chromium > /dev/null
+
+      - name: Inst alert
+        if: steps.inst.outputs.go == 'true'
+        continue-on-error: true
+        env:
+          KRX_ID: ${{ secrets.KRX_ID }}
+          KRX_PW: ${{ secrets.KRX_PW }}
+          TELEGRAM_API_ID: ${{ secrets.TELEGRAM_API_ID }}
+          TELEGRAM_API_HASH: ${{ secrets.TELEGRAM_API_HASH }}
+          TELEGRAM_SESSION: ${{ secrets.TELEGRAM_SESSION }}
+          SURGE_ALERT_CHAT: ${{ secrets.SURGE_ALERT_CHAT }}
+        run: python inst_alert.py ${{ inputs.alert_test != true && '--auto' || '' }}
+
       - name: Commit
         run: |
           git config user.name "github-actions[bot]"
@@ -83,14 +115,14 @@ jobs:
           exit 1
 
       # 커밋이 나간 뒤에 보낸다(메시지의 사이트 링크가 바로 열리게). 실제로 수집한 실행만 —
-      # auto가 건너뛴 시각·휴장일·백필·18:35 schedule은 slot 출력이 없다.
+      # auto가 건너뛴 시각·휴장일·백필·18:35 schedule은 slot 출력이 없다. 알림 시험은 오늘 마지막 시각을 보낸다.
       # 시크릿이 없으면 notice만 남기고 끝나고, 실패해도 실행 전체를 실패로 만들지 않는다.
       - name: Telegram
-        if: steps.collect.outputs.slot != ''
+        if: steps.collect.outputs.slot != '' || inputs.alert_test
         continue-on-error: true
         env:
           TELEGRAM_API_ID: ${{ secrets.TELEGRAM_API_ID }}
           TELEGRAM_API_HASH: ${{ secrets.TELEGRAM_API_HASH }}
           TELEGRAM_SESSION: ${{ secrets.TELEGRAM_SESSION }}
           SURGE_ALERT_CHAT: ${{ secrets.SURGE_ALERT_CHAT }}
-        run: python notify.py --slot "${{ steps.collect.outputs.slot }}" --day "${{ steps.collect.outputs.day }}"
+        run: python notify.py --slot "${{ steps.collect.outputs.slot || 'latest' }}" ${{ steps.collect.outputs.day && format('--day {0}', steps.collect.outputs.day) || '' }}

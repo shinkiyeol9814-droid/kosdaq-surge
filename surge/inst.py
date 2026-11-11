@@ -23,9 +23,12 @@ VERSION = 2                      # 2: 코스피도 시총 1조 미만 노란 칸
 KINDS = [k for k, _ in C.INST_KINDS]
 
 
-def build(days: list, listing: dict, updated: str) -> dict:
-    """days: 오래된 순 거래일(휴장 제외), 마지막이 기준일. listing은 krx.listing 결과."""
+def build(days: list, listing: dict, updated: str, last=None) -> dict:
+    """days: 오래된 순 거래일(휴장 제외), 마지막이 기준일. listing은 krx.listing 결과.
+    last: 기준일 원자료를 파일 대신 이것으로({t|p|y: {코드: 백만원}}) — 16시 잠정치 알림(inst_alert.py)용."""
     raw = [store.load_inst_day(d) or {} for d in days]
+    if last is not None:
+        raw[-1] = last
     out = {}
     for mkt in ("K", "Q"):
         rows = {}

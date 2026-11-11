@@ -22,7 +22,7 @@ https://kosdaq-surge.yunhee2368.workers.dev/ 와 같은 기능을 목표로 2026
 | GitHub Actions | 3.12 (워크플로우에 고정) |
 | 로컬 | 3.13 |
 
-의존성은 `requests`, `holidays`, `pykrx`(투신 수급 전용 — pandas 등을 끌고 온다), `telethon`(텔레그램 알림 전용)이다.
+의존성은 `requests`, `holidays`, `pykrx`(투신 수급 전용 — pandas 등을 끌고 온다), `telethon`(텔레그램 알림 전용)이다. 종합 수급 사진용 `playwright`는 requirements에 없다 — 워크플로우가 보낼 때만 설치한다.
 프런트엔드는 빌드 도구 없는 순수 HTML/CSS/JS.
 
 ---
@@ -55,7 +55,9 @@ https://kosdaq-surge.yunhee2368.workers.dev/ 와 같은 기능을 목표로 2026
 | `surge/flow.py` | 투신 두 목록(오늘 많이 산 / 연속 순매수) 계산, 대상 판정 `in_universe` |
 | `surge/inst.py` | 종합 수급 탭 표(시장별 순매수 상위·매수강도 상위, 60일 연속 순매수) 계산 |
 | `docs/index.html · app.js · style.css` | 정적 화면 |
-| `notify.py --slot … [--dry-run]` | 방금 수집한 시각의 포착(★1 이상, `ALERT_MIN_GRADE`)을 텔레그램으로 — Telethon, 내 계정이 보낸다 |
+| `notify.py --slot …\|latest [--dry-run]` | 방금 수집한 시각의 포착(★1 이상, `ALERT_MIN_GRADE`)을 텔레그램 글로 |
+| `inst_alert.py [--auto] [--check] [--out DIR]` | 종합 수급 표를 시장마다 사진 5장으로 텔레그램에 — 16시 잠정치. 사이트 사본을 Playwright로 찍는다 |
+| `surge/tg.py` | 텔레그램 보내기(Telethon, **내 계정**이 보낸다 — stockapp2와 같은 방식). 글·사진 묶음 |
 | `.github/workflows/snapshot.yml` | repository_dispatch(`snapshot`) / 평일 18:35 schedule(투신만) / 수동 실행 |
 
 ### 데이터 레이아웃
@@ -127,6 +129,13 @@ POST https://api.github.com/repos/shinkiyeol9814-droid/kosdaq-surge/dispatches
 커밋은 기본 `GITHUB_TOKEN`. Actions Secrets엔 KRX 계정(`KRX_ID`/`KRX_PW`, 'Fund flow' 단계에만)과
 텔레그램(`TELEGRAM_API_ID`/`TELEGRAM_API_HASH`/`TELEGRAM_SESSION`/`SURGE_ALERT_CHAT`, 'Telegram' 단계에만)이 있다.
 'Telegram' 단계는 Commit 뒤, `run.py`가 실제로 수집했을 때만(`GITHUB_OUTPUT`의 `slot`) 돈다. 시크릿이 없으면 notice만 남긴다.
+
+**16시 종합 수급 사진** — cron-job.org 잡의 시에 **16**을 넣어야 불린다(16:05·16:35). `inst_alert.py --auto`가
+16:00~16:59 개장일에만, 그날 한 번만(`data/alert_state.json`의 `inst`) 보낸다. KRX 확정치(18시 뒤) 전이라 **잠정치**를
+메모리에서만 표로 만든다 — `data/inst`엔 저장하지 않고 확정치는 평소대로 18:35에 받는다. KRX가 아직 빈 표면 16:35에 다시.
+그림은 `docs/` 사본에 그날 결과만 넣어 띄우고 `.sheet` 다섯 개를 찍은 것(제목에 `pre` "16:05 잠정치")이라 표 모양은
+app.js·style.css를 따른다. 러너엔 한글 글꼴이 없어 `fonts-noto-cjk`를 깐다. 수동 실행의 `alert_test`는 수집 없이
+오늘 마지막 급등 시각 글과 종합 수급 사진(확정 결과가 있으면 그것)을 보낸다.
 세션은 stockapp2와 **따로** 만든다 — 같은 StringSession을 두 리포가 동시에 쓰면 `AUTH_KEY_DUPLICATED`로 세션이 죽을 수 있다.
 보낼 곳(비공개 초대 링크 등)은 공유 비밀이라 코드에 넣지 말 것.
 

@@ -176,5 +176,9 @@ def inst_result_days() -> list:
     return _dated(INST_OUT_DIR)
 
 
+def load_inst_result(day: str) -> dict:
+    return _load(os.path.join(INST_OUT_DIR, f"{day}.json")) or {}
+
+
 def save_inst_result(day: str, obj: dict):
     _write_json(os.path.join(INST_OUT_DIR, f"{day}.json"), obj)
