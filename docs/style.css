@@ -127,25 +127,40 @@ td.name .news:hover { color: var(--text); }
 .sub { color: var(--faint); font-size: .72rem; }
 /* 종합 수급 표 — 테마와 상관없이 흰 바탕(요청받은 이미지 표와 같은 모양). 강조: 노랑 0.3%↑·1조 미만, 보라 투신 2일↑ 연속, 민트 매수강도 두 곳↑ */
 .igrid { display: flex; flex-direction: column; gap: 18px; }
-.sheet { --s-up: #d32f2f; --s-down: #1565c0; background: #fff; color: #111; border-radius: 10px; padding: 14px 14px 10px;
+.sheet {
+  /* 다크 테마 — 페이지 패널 색에 맞춘다. 노랑은 밝게 두고 글자를 어둡게(반투명 노랑은 탁해 보였다) */
+  --sh-bg: var(--panel); --sh-text: var(--text); --sh-line: var(--line); --sh-th: #243247; --sh-key: #7a1e1e;
+  --sh-nm: var(--panel-2); --sh-tint: rgba(239, 83, 80, 0.10); --sh-yel: #ffe58a; --sh-yel-text: #2b2300;
+  --sh-yel-up: #c62828; --sh-pur: rgba(149, 117, 205, 0.38); --sh-mint: rgba(77, 208, 170, 0.38); --sh-foot: var(--muted);
+  --s-up: var(--up); --s-down: var(--down);
+  background: var(--sh-bg); color: var(--sh-text); border: 1px solid var(--line); border-radius: 10px; padding: 14px 14px 10px;
   font-variant-numeric: tabular-nums; scroll-margin-top: 10px; }
+/* 라이트 테마 — 요청받은 이미지 표 그대로(텔레그램 사진도 라이트로 찍는다) */
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) .sheet {
+    --sh-bg: #fff; --sh-text: #111; --sh-line: #c9d1dc; --sh-th: #1f2a3a; --sh-nm: #f2f4f7; --sh-tint: #fdf0ef;
+    --sh-yel: #fff0b3; --sh-yel-text: #111; --sh-yel-up: #d32f2f; --sh-pur: #e6dcf5; --sh-mint: #7fe3c3; --sh-foot: #555;
+    --s-up: #d32f2f; --s-down: #1565c0;
+  }
+}
 .sheet h2 { margin: 0 0 10px; text-align: center; font-size: 1.15rem; }
 .sheet h3 { margin: 0 0 6px; text-align: center; font-size: .95rem; }
 .sheet table { border-collapse: collapse; width: 100%; }
-.sheet th { background: #1f2a3a; color: #fff; font-weight: 700; padding: 7px 8px; border: 1px solid #c9d1dc; font-size: .85rem; line-height: 1.25; }
-.sheet th.key { background: #7a1e1e; }
-.sheet td { border: 1px solid #c9d1dc; padding: 6px 8px; text-align: center; white-space: nowrap; }
-.sheet td.nm { background: #f2f4f7; font-weight: 700; }
+.sheet th { background: var(--sh-th); color: #fff; font-weight: 700; padding: 7px 8px; border: 1px solid var(--sh-line); font-size: .85rem; line-height: 1.25; }
+.sheet th.key { background: var(--sh-key); }
+.sheet td { border: 1px solid var(--sh-line); padding: 6px 8px; text-align: center; white-space: nowrap; }
+.sheet td.nm { background: var(--sh-nm); font-weight: 700; }
 .sheet a { text-decoration: none; color: inherit; }
 .sheet a:hover { text-decoration: underline; }
 .sheet .b { font-weight: 700; }
 .sheet .s-up { color: var(--s-up); }
 .sheet .s-down { color: var(--s-down); }
-.sheet .tint { background: #fdf0ef; }
-.sheet .yel { background: #fff0b3; }
-.sheet .pur { background: #e6dcf5; }
-.sheet .mint { background: #7fe3c3; }
-.sheet .foot { margin: 10px 0 0; font-size: .74rem; color: #555; line-height: 1.6; }
+.sheet .tint { background: var(--sh-tint); }
+.sheet .yel { background: var(--sh-yel); color: var(--sh-yel-text); }
+.sheet .yel.s-up { color: var(--sh-yel-up); }
+.sheet .pur { background: var(--sh-pur); }
+.sheet .mint { background: var(--sh-mint); }
+.sheet .foot { margin: 10px 0 0; font-size: .74rem; color: var(--sh-foot); line-height: 1.6; }
 .sheet-scroll { overflow-x: auto; }
 .sheet table.wide { min-width: 900px; }
 .pow4 { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
