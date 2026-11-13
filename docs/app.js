@@ -519,6 +519,49 @@
     });
   }
 
+  // ── 자동 갱신 ─────────────────────────────────────────────────────────
+  // 열어 둔 화면이 새 수집을 따라오게 1분마다 색인만 다시 받아 updated가 바뀌었으면 다시 그린다.
+  // 보던 일자가 최신이었으면 새 최신 일자로 넘어가고, 지난 일자를 보던 중이면 그대로 둔다. 탭이 숨겨진 동안엔 쉰다.
+  const POLL_MS = 60 * 1000;
+  const FEEDS = [
+    { view: "surge", idx: "idx", docs: "docs", day: "day", dir: "data/days", index: "data/index.json", show: () => show(), first: (x) => x.days[0]?.d },
+    { view: "flow", idx: "fidx", docs: "fdocs", day: "fday", dir: "data/flow", show: () => showFlow(), first: (x) => x.days[0]?.d },
+    { view: "inst", idx: "iidx", docs: "idocs", day: "iday", dir: "data/inst", show: () => showInst(), first: (x) => x.days[0] },
+  ];
+  let polling = false;
+
+  async function poll() {
+    if (polling || document.hidden) return;
+    polling = true;
+    try {
+      for (const f of FEEDS) {
+        const old = state[f.idx];
+        if (!old?.updated) continue;            // 아직 안 연 탭은 처음 열 때 받는다
+        let fresh;
+        try { fresh = await getJSON(`${f.index || `${f.dir}/index.json`}?t=${Date.now()}`); } catch (e) { continue; }
+        if (!fresh?.updated || fresh.updated === old.updated) continue;
+        const day = state[f.day] === f.first(old) || !state[f.day] ? f.first(fresh) : state[f.day];
+        // 보던 일자 파일을 먼저 받아 두고 바꿔 끼운다 — 표를 비웠다 다시 그리면 스크롤이 튄다
+        let doc = null;
+        if (state.view === f.view && day) {
+          try { doc = await getJSON(`${f.dir}/${day}.json?v=${encodeURIComponent(fresh.updated)}`); } catch (e) { continue; }
+        }
+        state[f.idx] = fresh;
+        state[f.docs] = doc ? { [day]: doc } : {};   // 일자 파일은 ?v=updated로 받으니 캐시를 비우면 새로 받는다
+        state[f.day] = day;
+        if (f.view === "surge" && fresh.criteria) renderRules(fresh.criteria);
+        if (state.view !== f.view) continue;
+        $("updated").textContent = `갱신 ${fresh.updated}`;
+        const y = window.scrollY;                 // 일자 버튼 scrollIntoView가 페이지를 움직이지 않게
+        await f.show().catch(() => {});          // 정렬·시각·시장 선택은 그대로 둔다
+        window.scrollTo(window.scrollX, y);
+      }
+    } finally { polling = false; }
+  }
+
+  setInterval(poll, POLL_MS);
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) poll(); });
+
   async function init() {
     bind();
     const [d, s, x, y] = decodeURIComponent(location.hash.slice(1)).split("/");
