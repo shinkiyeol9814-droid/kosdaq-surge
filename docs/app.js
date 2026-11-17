@@ -164,7 +164,7 @@
         <td class="idx">${i + 1}</td>
         <td><span class="dots" title="${r.on.map((s) => LABEL[s]).join(" · ")}">${dots}</span></td>
         <td><span class="stars ${r.grade ? "" : "none"}">${r.grade ? "★".repeat(r.grade) : "–"}</span></td>
-        <td class="name"><a class="nm" href="https://finance.naver.com/item/main.naver?code=${r.code}" target="_blank" rel="noopener">${esc(st.n)}</a><span class="cd">${r.code}</span><span class="mk">${st.m === "K" ? "코스피" : "코스닥"}</span>${news}</td>
+        <td class="name"><a class="nm" href="https://stock.naver.com/domestic/stock/${r.code}" target="_blank" rel="noopener">${esc(st.n)}</a><span class="cd">${r.code}</span><span class="mk">${st.m === "K" ? "코스피" : "코스닥"}</span>${news}</td>
         <td>${candleSVG(st.k)}</td>
         <td class="r mult">${fmt(r.mult, 1)}배</td>
         <td class="r">${fmt(r.price)}</td>
@@ -279,7 +279,7 @@
     $("empty").textContent = "이 조건에 해당하는 종목이 없다.";
     $("tbody").innerHTML = rows.map((r, i) => `<tr>
         <td class="idx">${i + 1}</td>
-        <td class="name"><a class="nm" href="https://finance.naver.com/item/main.naver?code=${r.code}" target="_blank" rel="noopener">${esc(r.n)}</a><span class="cd">${r.code}</span><span class="mk">${r.m === "K" ? "코스피" : "코스닥"}</span></td>
+        <td class="name"><a class="nm" href="https://stock.naver.com/domestic/stock/${r.code}" target="_blank" rel="noopener">${esc(r.n)}</a><span class="cd">${r.code}</span><span class="mk">${r.m === "K" ? "코스피" : "코스닥"}</span></td>
         <td title="${f.days.map((d, j) => `${d.slice(5)} ${fmt(r.s[j], 1)}억`).join("\n")}">${flowBars(r.s)}</td>
         <td>${candleSVG(r.ohlc)}</td>
         <td class="r ${cls(r.net)} strong">${r.net > 0 ? "+" : ""}${fmt(r.net, 1)}</td>
@@ -346,7 +346,7 @@
       ["pow", "s", "t", "p", "y"].map((k) => `<a class="jump" href="#" data-j="${k}">${k === "pow" ? "매수강도" : KNAME[k]}</a>`).join("");
   }
 
-  const nm = (code, r) => `<a href="https://finance.naver.com/item/main.naver?code=${code}" target="_blank" rel="noopener">${esc(r.n)}</a>`;
+  const nm = (code, r) => `<a href="https://stock.naver.com/domestic/stock/${code}" target="_blank" rel="noopener">${esc(r.n)}</a>`;
 
   function powSheet(f, m) {
     const c = f.criteria, hot = {};
