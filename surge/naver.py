@@ -5,6 +5,7 @@
 코스피 약 25페이지 + 코스닥 약 19페이지, 페이지당 0.15초 안팎이라 몇 초면 끝난다.
 """
 import html
+from datetime import datetime, timedelta, timezone
 import time
 from concurrent.futures import ThreadPoolExecutor
 
@@ -13,6 +14,11 @@ import requests
 H = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
 _S = requests.Session()
 _S.headers.update(H)
+
+
+KST = timezone(timedelta(hours=9))
+NEWS_SCAN = 10          # 종목 뉴스를 몇 건 훑을지
+NEWS_RECENT_DAYS = 3    # 제목에 이름이 든 기사를 이 기간 안에서만 고른다(오래된 기사보다 최신 묶음 기사가 낫다)
 
 
 def _get(url, timeout=10, tries=3):
@@ -97,15 +103,23 @@ def minute5_bars(code: str, start: str, end: str) -> list:
     return out
 
 
-def latest_news(code: str):
-    """가장 최근 뉴스 (제목, 언론사, 링크, YYYYMMDDHHMM) 또는 None."""
+def latest_news(code: str, name: str = ""):
+    """종목 뉴스 한 건 (제목, 언론사, 링크, YYYYMMDDHHMM) 또는 None.
+    네이버 종목 뉴스엔 본문에 이름만 나오는 묶음 기사(업종 결산 등)도 섞여서, 최신 한 건만 쓰면 엉뚱한 기사가
+    붙곤 했다(세코닉스에 '심텍 결산' 기사). 그래서 최근 NEWS_SCAN건 중 NEWS_RECENT_DAYS일 안에 나온,
+    제목에 종목명이 들어간 기사를 먼저 고르고, 없으면 최신 기사를 쓴다."""
     try:
-        groups = _get(f"https://m.stock.naver.com/api/news/stock/{code}?pageSize=1&page=1", tries=2)
-        for g in groups or []:
-            for it in g.get("items", []):
-                url = f"https://n.news.naver.com/mnews/article/{it['officeId']}/{it['articleId']}"
-                # 제목은 이미 HTML 이스케이프돼 온다(&quot; 등) — 화면이 다시 이스케이프하므로 풀어 둔다.
-                return [html.unescape(it.get("title", "")), it.get("officeName", ""), url, it.get("datetime", "")]
+        groups = _get(f"https://m.stock.naver.com/api/news/stock/{code}?pageSize={NEWS_SCAN}&page=1", tries=2)
+        items = [it for g in groups or [] for it in g.get("items", [])]
     except Exception:
-        pass
-    return None
+        return None
+    if not items:
+        return None
+    items.sort(key=lambda it: it.get("datetime", ""), reverse=True)
+    since = (datetime.now(KST) - timedelta(days=NEWS_RECENT_DAYS)).strftime("%Y%m%d%H%M")
+    key = name.replace(" ", "")
+    pick = next((it for it in items if key and it.get("datetime", "") >= since
+                 and key in html.unescape(it.get("title", "")).replace(" ", "")), items[0])
+    url = f"https://n.news.naver.com/mnews/article/{pick['officeId']}/{pick['articleId']}"
+    # 제목은 이미 HTML 이스케이프돼 온다(&quot; 등) — 화면이 다시 이스케이프하므로 풀어 둔다.
+    return [html.unescape(pick.get("title", "")), pick.get("officeName", ""), url, pick.get("datetime", "")]

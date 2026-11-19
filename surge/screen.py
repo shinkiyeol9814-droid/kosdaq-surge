@@ -59,7 +59,7 @@ def find_hits(day: str, slot: str, rows: dict) -> dict:
     return hits
 
 
-def _extras(codes, day: str, with_news=True) -> dict:
+def _extras(codes, day: str, with_news=True, names=None) -> dict:
     """종목별 3개월 일봉([[시,고,저,종]...])과 최신 뉴스. 실패한 종목은 비워 둔다."""
     end = date.fromisoformat(day)
     start = (end - timedelta(days=95)).strftime("%Y%m%d")
@@ -72,7 +72,7 @@ def _extras(codes, day: str, with_news=True) -> dict:
         except Exception:
             pass
         if with_news:
-            out["news"] = naver.latest_news(code)
+            out["news"] = naver.latest_news(code, (names or {}).get(code, ""))
         return code, out
 
     with ThreadPoolExecutor(max_workers=8) as ex:
@@ -85,7 +85,8 @@ def update_day(day: str, slot: str, taken_at: str, rows: dict, hits: dict, with_
     if note:
         doc["note"] = note
     codes = sorted({c for s in doc["slots"].values() for c in s["hits"]})
-    extras = _extras(codes, day, with_news)
+    names = {c: (rows[c][0] if c in rows else doc["stocks"].get(c, {}).get("n", "")) for c in codes}
+    extras = _extras(codes, day, with_news, names)
     stocks = {}
     for code in codes:
         old = doc["stocks"].get(code, {})
