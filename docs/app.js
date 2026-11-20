@@ -353,7 +353,8 @@
     for (const k of ["t", "p", "y"]) for (const code of m.pow[k]) hot[code] = (hot[code] || 0) + 1;
     const cols = ["s", "t", "p", "y"].map((k) => `<div>
         <h3>${POWTITLE[k]} 상위 ${c.top}</h3>
-        <table><thead><tr><th>순위</th><th>종목명</th><th>매수강도</th><th>등락률</th></tr></thead><tbody>
+        <table><colgroup><col class="rk"><col><col class="pw"><col class="ch"></colgroup>
+        <thead><tr><th>순위</th><th>종목명</th><th>매수강도</th><th>등락률</th></tr></thead><tbody>
         ${m.pow[k].map((code, i) => {
           const r = m.stocks[code], mint = hot[code] >= 2 ? "mint" : "";
           return `<tr><td>${i + 1}</td><td class="${mint}">${nm(code, r)}</td>

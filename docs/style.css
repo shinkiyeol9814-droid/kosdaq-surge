@@ -164,8 +164,15 @@ td.name .news:hover { color: var(--text); }
 .sheet-scroll { overflow-x: auto; }
 .sheet table.wide { min-width: 900px; }
 .pow4 { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
-.pow4 td, .pow4 th { padding: 5px 6px; font-size: .82rem; }
-.pow4 td:nth-child(2) { white-space: normal; word-break: keep-all; }
+/* 네 표의 열 폭을 똑같이 — 내용에 따라 열이 늘었다 줄었다 하지 않게 고정 배치(table-layout: fixed)로
+   순위·매수강도·등락률은 같은 폭, 종목명이 나머지. 헤더는 한 줄로 줄여 넣고, 긴 이름만 줄을 바꾼다 */
+.pow4 table { table-layout: fixed; }
+.pow4 col.rk { width: 1.9rem; }
+.pow4 col.pw { width: 3.3rem; }
+.pow4 col.ch { width: 3.7rem; }
+.pow4 td, .pow4 th { padding: 5px 3px; font-size: .78rem; }
+.pow4 th { padding: 5px 2px; font-size: .72rem; white-space: nowrap; letter-spacing: -.02em; }
+.pow4 td:nth-child(2) { font-size: .74rem; letter-spacing: -.03em; white-space: normal; word-break: keep-all; overflow-wrap: anywhere; line-height: 1.25; }
 #itabs .jump { align-self: center; font-size: .8rem; color: var(--muted); text-decoration: none; padding: 0 6px; }
 #itabs .jump:hover { color: var(--text); }
 #itabs .jump:first-of-type { margin-left: 8px; border-left: 1px solid var(--line); padding-left: 12px; }
