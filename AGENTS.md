@@ -56,6 +56,7 @@ https://kosdaq-surge.yunhee2368.workers.dev/ 와 같은 기능을 목표로 2026
 | `surge/sector.py` | 업종 분류 — 3기관 매수강도 상위 30의 종목별 업종(네이버 업종을 `config.SECTOR_MERGE`로 묶고 `SECTOR_THEME`으로 덮음) → `mk.{K|Q}.sec` |
 | `surge/inst.py` | 종합 수급 탭 표(시장별 순매수 상위·매수강도 상위, 60일 연속 순매수) 계산 |
 | `docs/index.html · app.js · style.css` | 정적 화면 |
+| `docs/changelog.json` | 화면의 '버전 이력'(머리글 단추). **기능·화면을 바꾸면 맨 위에 새 버전을 추가할 것** — `{v, d, items[]}`, 최신이 처음 |
 | `notify.py --slot …\|latest [--dry-run]` | 방금 수집한 시각의 포착(★1 이상, `ALERT_MIN_GRADE`)을 텔레그램 글로 |
 | `inst_alert.py [--auto] [--check] [--out DIR]` | 종합 수급 표를 시장마다 사진 5장으로 텔레그램에 — 16시 잠정치. 사이트 사본을 Playwright로 찍는다 |
 | `surge/tg.py` | 텔레그램 보내기(Telethon, **내 계정**이 보낸다 — stockapp2와 같은 방식). 글·사진 묶음 |

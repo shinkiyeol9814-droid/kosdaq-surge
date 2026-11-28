@@ -49,6 +49,26 @@ a { color: inherit; }
 .kicker { font-size: .72rem; letter-spacing: .12em; color: var(--muted); font-weight: 600; }
 h1 { font-size: 1.35rem; margin: 2px 0 0; letter-spacing: -.01em; }
 .updated { font-size: .78rem; color: var(--muted); white-space: nowrap; }
+.top-r { display: flex; align-items: center; gap: 10px; }
+/* 버전 이력 — 머리글 단추 + 대화상자(docs/changelog.json) */
+.ver { font: inherit; font-size: .74rem; color: var(--muted); background: var(--panel); border: 1px solid var(--line);
+  border-radius: 999px; padding: 3px 10px; cursor: pointer; white-space: nowrap; }
+.ver:hover { color: var(--text); }
+.vlog { width: min(640px, calc(100vw - 32px)); max-height: min(80vh, 760px); padding: 0; border: 1px solid var(--line);
+  border-radius: 12px; background: var(--panel); color: var(--text); }
+.vlog::backdrop { background: rgba(0, 0, 0, .5); }
+.vlog-head { position: sticky; top: 0; display: flex; justify-content: space-between; align-items: center;
+  padding: 12px 16px; background: var(--panel); border-bottom: 1px solid var(--line); }
+.vlog-head h2 { margin: 0; font-size: 1rem; }
+.vlog-x { font: inherit; font-size: 1.3rem; line-height: 1; background: none; border: 0; color: var(--muted); cursor: pointer; padding: 2px 6px; }
+.vlog-x:hover { color: var(--text); }
+.vlog-body { padding: 6px 16px 14px; }
+.vlog-body section { padding: 10px 0; border-bottom: 1px solid var(--line); }
+.vlog-body section:last-child { border-bottom: 0; }
+.vlog-body h3 { margin: 0 0 4px; font-size: .9rem; display: flex; gap: 8px; align-items: baseline; }
+.vlog-body h3 .d { color: var(--muted); font-weight: 400; font-size: .78rem; }
+.vlog-body h3 .now { font-size: .68rem; font-weight: 700; color: var(--accent); border: 1px solid var(--accent); border-radius: 999px; padding: 0 6px; }
+.vlog-body ul { margin: 0; padding-left: 18px; font-size: .85rem; color: var(--muted); line-height: 1.6; }
 
 .views { display: flex; gap: 18px; border-bottom: 1px solid var(--line); margin-bottom: 14px; }
 .views button {
@@ -200,6 +220,7 @@ footer { margin-top: 18px; font-size: .75rem; color: var(--faint); line-height: 
   main { padding: 14px 12px 32px; }
   h1 { font-size: 1.15rem; }
   .top { align-items: flex-start; flex-direction: column; gap: 2px; }
+  .top-r { width: 100%; justify-content: space-between; margin-top: 4px; }
   #tbl th, #tbl td { padding: 6px 8px; }
   /* 좁은 화면은 표를 옆으로 밀어 보게 되므로 종목명을 왼쪽에 붙잡아 둔다 */
   #tbl th:first-child, #tbl td.idx { display: none; }

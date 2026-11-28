@@ -627,5 +627,24 @@
     setView("surge");
   });
 
+  // ── 버전 이력 ─────────────────────────────────────────────────────────
+  // changelog.json(최신이 맨 위)을 읽어 머리글 단추에 현재 버전을 적고, 누르면 대화상자로 전체 이력을 보여준다.
+  // 못 읽으면 단추를 숨긴 채로 둔다(화면의 나머지는 그대로).
+  async function initVersions() {
+    let log;
+    try { log = await getJSON(`changelog.json?t=${Date.now()}`); } catch (e) { return; }
+    const vs = log.versions || [];
+    if (!vs.length) return;
+    $("ver").textContent = `v${vs[0].v} · 버전 이력`;
+    $("ver").hidden = false;
+    $("vlog-body").innerHTML = vs.map((x, i) => `<section><h3>v${esc(x.v)} <span class="d">${esc(x.d)}</span>
+        ${i === 0 ? `<span class="now">현재</span>` : ""}</h3>
+      <ul>${x.items.map((t) => `<li>${esc(t)}</li>`).join("")}</ul></section>`).join("");
+    $("ver").addEventListener("click", () => $("vlog").showModal());
+    $("vlog-x").addEventListener("click", () => $("vlog").close());
+    $("vlog").addEventListener("click", (e) => { if (e.target === $("vlog")) $("vlog").close(); });   // 바깥(배경) 누르면 닫기
+  }
+
   init();
+  initVersions();
 })();

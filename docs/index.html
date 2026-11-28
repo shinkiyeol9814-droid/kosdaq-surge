@@ -15,8 +15,17 @@
       <div class="kicker">KOSPI · KOSDAQ</div>
       <h1>거래대금 급증 스크리너</h1>
     </div>
-    <div class="updated" id="updated"></div>
+    <div class="top-r">
+      <button type="button" class="ver" id="ver" aria-haspopup="dialog" hidden>버전 이력</button>
+      <div class="updated" id="updated"></div>
+    </div>
   </header>
+
+  <dialog class="vlog" id="vlog" aria-labelledby="vlog-h">
+    <div class="vlog-head"><h2 id="vlog-h">버전 이력</h2>
+      <button type="button" class="vlog-x" id="vlog-x" aria-label="닫기">×</button></div>
+    <div class="vlog-body" id="vlog-body"></div>
+  </dialog>
 
   <nav class="views" id="views" aria-label="화면">
     <button data-v="surge" class="on">거래대금 급증</button><button data-v="flow">투신 수급</button><button data-v="inst">종합 수급</button>
