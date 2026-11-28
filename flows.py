@@ -21,7 +21,7 @@ import time
 from datetime import timedelta
 
 from surge import config as C
-from surge import flow, inst, krx, krxcal, store
+from surge import flow, inst, krx, krxcal, sector, store
 
 
 def target_day(now):
@@ -151,7 +151,7 @@ def inst_main(now, latest):
         if len(rows) < 1500:
             print(f"::warning title=기관 수급::{d} 시세가 {len(rows)}종목뿐 — 건너뜀")
             continue
-        store.save_inst_result(d, inst.build(days, rows, stamp))
+        store.save_inst_result(d, sector.attach(inst.build(days, rows, stamp)))
         made.append(d)
 
     for d in store.inst_result_days()[:-C.INST_SHOW_DAYS]:

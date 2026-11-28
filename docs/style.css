@@ -173,6 +173,11 @@ td.name .news:hover { color: var(--text); }
 .pow4 td, .pow4 th { padding: 5px 3px; font-size: .78rem; }
 .pow4 th { padding: 5px 2px; font-size: .72rem; white-space: nowrap; letter-spacing: -.02em; }
 .pow4 td:nth-child(2) { font-size: .74rem; letter-spacing: -.03em; white-space: normal; word-break: keep-all; overflow-wrap: anywhere; line-height: 1.25; }
+/* 업종 분류 표 — 업종·종목 수는 좁게, 종목 목록은 줄바꿈 허용 */
+.sheet table.sec col.g { width: 11rem; }
+.sheet table.sec col.n { width: 4.5rem; }
+.sheet table.sec td.list { text-align: left; white-space: normal; word-break: keep-all; line-height: 1.5; }
+@media (max-width: 640px) { .sheet table.sec col.g { width: 6.5rem; } .sheet table.sec col.n { width: 3rem; } }
 #itabs .jump { align-self: center; font-size: .8rem; color: var(--muted); text-decoration: none; padding: 0 6px; }
 #itabs .jump:hover { color: var(--text); }
 #itabs .jump:first-of-type { margin-left: 8px; border-left: 1px solid var(--line); padding-left: 12px; }

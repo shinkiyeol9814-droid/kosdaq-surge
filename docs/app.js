@@ -323,7 +323,7 @@
   }
 
   // ── 종합 수급 ─────────────────────────────────────────────────────────
-  // 시장마다 표 다섯 장(매수강도 4열 + 3기관·투신·사모·연기금 순매수 Top30)을 한 화면에 차례로 그린다.
+  // 시장마다 표 다섯~여섯 장(매수강도 4열 + 업종 분류(있는 날만) + 3기관·투신·사모·연기금 순매수 Top30)을 한 화면에 차례로 그린다.
   // 표 모양은 요청받은 이미지 표와 같게(.sheet). 색은 시스템 테마를 따르고, 라이트가 이미지 그대로다.
   // f.pre가 있으면 16시 잠정치 — inst_alert.py가 임시 사본에서 그려 텔레그램 사진으로만 보낸다(사이트엔 확정치만).
   const KNAME = { s: "3기관", t: "투신", p: "사모", y: "연기금" };
@@ -343,7 +343,7 @@
     if (on) on.scrollIntoView({ block: "nearest", inline: "nearest" });
     $("itabs").innerHTML = Object.entries(MKT).reverse().map(([k, t]) =>
       `<button data-m="${k}" class="${k === state.imkt ? "on" : ""}">${t}</button>`).join("") +
-      ["pow", "s", "t", "p", "y"].map((k) => `<a class="jump" href="#" data-j="${k}">${k === "pow" ? "매수강도" : KNAME[k]}</a>`).join("");
+      ["pow", "sec", "s", "t", "p", "y"].map((k) => `<a class="jump" href="#" data-j="${k}">${{ pow: "매수강도", sec: "업종" }[k] || KNAME[k]}</a>`).join("");
   }
 
   const nm = (code, r) => `<a href="https://stock.naver.com/domestic/stock/${code}" target="_blank" rel="noopener">${esc(r.n)}</a>`;
@@ -367,6 +367,34 @@
       <p class="foot">매수강도 = 그날 순매수 금액 ÷ 시가총액 × 100(%). 3기관 = 투신+사모+연기금.
         순매수 ${fmt(c.pow_min_net / 1e8)}억·시총 ${fmt(c.pow_min_mcap / 1e8)}억 이상. 민트 = 투신·사모·연기금 Top${c.top} 중 2곳 이상 등장.
         굵게 = ${c.hl_pct}% 이상. 자료: KRX</p></section>`;
+  }
+
+  // 3기관 매수강도 상위를 업종별로(m.sec = {코드: 업종}, surge/sector.py). 2종목 이상인 업종은 한 줄씩(많은 순, 같으면
+  // 순위가 높은 종목이 있는 업종 먼저), 1종목뿐인 업종은 '기타'에 "이름(업종)"으로. 종목 순서는 매수강도 순위 그대로.
+  function secSheet(f, m) {
+    if (!m.sec) return "";
+    const c = f.criteria, groups = new Map(), etc = [];
+    for (const code of m.pow.s) {
+      const g = m.sec[code] || "분류 없음";
+      if (!groups.has(g)) groups.set(g, []);
+      groups.get(g).push(code);
+    }
+    const name = (code) => {
+      const r = m.stocks[code];
+      return `<span class="${r.s[1] >= c.hl_pct ? "b" : ""}">${nm(code, r)}</span>`;
+    };
+    const rows = [];
+    for (const [g, codes] of groups) (codes.length >= 2 ? rows.push([g, codes]) : etc.push(codes[0]));
+    rows.sort((a, b) => b[1].length - a[1].length);
+    if (etc.length) rows.push(["기타", etc]);
+    const body = rows.map(([g, codes]) => `<tr><td class="nm">${esc(g)}</td><td>${codes.length}</td>
+        <td class="list">${codes.map((code) => g === "기타" ? `${name(code)}(${esc(m.sec[code] || "분류 없음")})` : name(code)).join(", ")}</td></tr>`).join("");
+    return `<section class="sheet" id="sh-sec"><h2>${MKT[state.imkt]} 3기관 매수강도 상위 ${m.pow.s.length}종목 업종 분류 — ${f.d}${f.pre ? ` (${f.pre})` : ""}</h2>
+      <table class="sec"><colgroup><col class="g"><col class="n"><col></colgroup>
+        <thead><tr><th>업종</th><th>종목 수</th><th>종목</th></tr></thead>
+        <tbody>${body || `<tr><td colspan="3">없음</td></tr>`}</tbody></table>
+      <p class="foot">대상: 3기관(투신+사모+연기금) 매수강도 상위 ${m.pow.s.length}종목. 업종은 네이버 업종을 묶은 것(2차전지 소재 등 일부는 테마로).
+        종목 순서는 매수강도 순, 굵게 = ${c.hl_pct}% 이상. 1종목뿐인 업종은 기타에 괄호로.</p></section>`;
   }
 
   function topSheet(f, m, k) {
@@ -403,7 +431,7 @@
     $("summary").innerHTML = `${MKT[state.imkt]} 종합 수급 · 기준일 ${f.d.slice(5)} (${wd}) ${f.pre || "장 마감 뒤 확정치"} · ${universe(c.max_mcap)}`;
     $("note").hidden = f.win >= c.streak_days;
     $("note").textContent = `연속 순매수는 최근 ${f.win}거래일 안에서 센 값이다(원자료가 아직 ${c.streak_days}일치 모이지 않았다).`;
-    $("igrid").innerHTML = powSheet(f, m) + ["s", "t", "p", "y"].map((k) => topSheet(f, m, k)).join("");
+    $("igrid").innerHTML = powSheet(f, m) + secSheet(f, m) + ["s", "t", "p", "y"].map((k) => topSheet(f, m, k)).join("");
   }
 
   async function showInst() {

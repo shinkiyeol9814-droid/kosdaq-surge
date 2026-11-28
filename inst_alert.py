@@ -1,5 +1,6 @@
 """
-종합 수급 표를 사진으로 텔레그램에 보낸다 — 시장(코스피·코스닥)마다 다섯 장(매수강도 + 3기관·투신·사모·연기금 Top30).
+종합 수급 표를 사진으로 텔레그램에 보낸다 — 시장(코스피·코스닥)마다 여섯 장
+(매수강도 + 업종 분류 + 3기관·투신·사모·연기금 Top30). 업종 분류는 네이버가 막히면 빠지고 다섯 장이 간다.
 
   python inst_alert.py --auto            # 16시 알림: 16:00~16:59 개장일에만, 그날 한 번만
   python inst_alert.py [--day YYYY-MM-DD] # 수동(알림 테스트) — 시각·중복 검사 없이
@@ -11,7 +12,7 @@
 (docs/data/inst/{일자}.json)가 이미 있으면(18시 뒤 수동 테스트) 그걸 그대로 그린다.
 
 그림은 사이트 화면 그대로다: docs/를 임시 폴더에 복사하고 그날 결과만 넣어 띄운 뒤 Playwright(Chromium)로
-.sheet 다섯 개를 하나씩 찍는다. 그래서 표 모양을 바꾸려면 app.js·style.css만 고치면 된다.
+.sheet를 하나씩 찍는다. 그래서 표 모양을 바꾸려면 app.js·style.css만 고치면 된다.
 보낸 날은 data/alert_state.json의 inst에 적어 16:35 호출이 다시 보내지 않게 한다.
 """
 import argparse
@@ -26,7 +27,7 @@ import threading
 import time
 
 from surge import config as C
-from surge import inst, krx, krxcal, store, tg
+from surge import inst, krx, krxcal, sector, store, tg
 
 STATE = os.path.join(store.ROOT, "data", "alert_state.json")
 WINDOW = ("1600", "1700")          # --auto가 보내는 시각 [시작, 끝) — cron-job.org 16:05·16:35 호출
@@ -56,6 +57,8 @@ def make_doc(day: str, now):
     """그날 종합 수급 결과. 확정 결과가 있으면 그것, 없으면 KRX 잠정치로 만든다. 아직 없으면 None."""
     final = store.load_inst_result(day)
     if final.get("mk"):
+        if not all(m.get("sec") for m in final["mk"].values()):
+            sector.attach(final)                           # 업종 분류 전에 만든 일자
         return final
     if not krx.has_login():
         raise RuntimeError("KRX_ID / KRX_PW 가 없다 — Actions Secrets 확인")
@@ -72,6 +75,7 @@ def make_doc(day: str, now):
     days = opened[-(C.INST_STREAK_DAYS - 1):] + [day]
     doc = inst.build(days, rows, now.strftime("%Y-%m-%d %H:%M"), last=raw)
     doc["pre"] = f"{now:%H:%M} 잠정치"
+    sector.attach(doc)
     return doc
 
 
@@ -81,7 +85,7 @@ class _Quiet(http.server.SimpleHTTPRequestHandler):
 
 
 def shoot(doc: dict, out_dir: str) -> dict:
-    """{시장: [사진 경로 5장]} — 사이트 사본을 띄우고 .sheet를 하나씩 찍는다."""
+    """{시장: [사진 경로 5~6장]} — 사이트 사본을 띄우고 .sheet를 하나씩 찍는다(업종 분류는 sec가 있을 때만)."""
     from playwright.sync_api import sync_playwright
 
     day = doc["d"]
@@ -106,7 +110,8 @@ def shoot(doc: dict, out_dir: str) -> dict:
                                     color_scheme="light")
             for mkt, _ in MARKETS:
                 page.goto(f"http://127.0.0.1:{srv.server_port}/#inst/{mkt}/{day}")
-                page.wait_for_function("document.querySelectorAll('#igrid .sheet').length === 5")
+                n = 5 + bool(doc["mk"][mkt].get("sec"))
+                page.wait_for_function(f"document.querySelectorAll('#igrid .sheet').length === {n}")
                 page.wait_for_timeout(300)                 # 글꼴 적용
                 files = []
                 for i, el in enumerate(page.query_selector_all("#igrid .sheet")):
